@@ -86,6 +86,9 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.1.3** — added an **ABSTENTION / false-recall** metric (`ramr_abstention.py`) and a relevance-floor
+  in the engine: with `recall(min_relevance=0.6)` it abstains on 100% of out-of-store probes (says 'not in
+  memory') while keeping 100% in-store recall, vs confabulating a wrong fact 100% of the time at floor 0.
 - **v0.1.2** — added a **signal-reliability break-even** harness (`ramr_breakeven.py`): sweeps credit
   reliability p x ambiguity D and shows recall-lift crosses zero at the no-signal floor 1/(1+D),
   validating the law on the engine; also characterizes mnemo's `cal_mode` (full/boost/gated) tradeoff.
