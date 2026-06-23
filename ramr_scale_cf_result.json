@@ -1,0 +1,1 @@
+{"results": {"qwen3-coder:30b": {"gold": 1.0, "partial": 0.0, "chain_fragility": 1.0, "ci": [1.0, 1.0], "n": 200}, "glm-5.2:cloud": {"gold": 1.0, "partial": 0.0, "chain_fragility": 1.0, "ci": [1.0, 1.0], "n": 200}}, "n": 200}

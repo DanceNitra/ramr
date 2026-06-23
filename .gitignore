@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+*.log
+*.out
+data/emb_cache.json
