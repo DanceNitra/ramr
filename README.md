@@ -86,6 +86,9 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.1.4** — added a **CROSS-SCOPE LEAKAGE** metric (`ramr_scope_leakage.py`) and `recall(scope=)`
+  isolation in the engine: a shared store with two tenants sharing one schema leaks an A-fact into B's
+  recall 79% of the time WITHOUT a scope; with `recall(scope='B')` leakage is 0% and in-scope recall 100%.
 - **v0.1.3** — added an **ABSTENTION / false-recall** metric (`ramr_abstention.py`) and a relevance-floor
   in the engine: with `recall(min_relevance=0.6)` it abstains on 100% of out-of-store probes (says 'not in
   memory') while keeping 100% in-store recall, vs confabulating a wrong fact 100% of the time at floor 0.
