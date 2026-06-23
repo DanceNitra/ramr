@@ -67,9 +67,10 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   read-back**, raw set to 1.0 by construction, n=3) retains 0.49 — a method-different **upper bound on what dense
   packing could preserve**, NOT a like-for-like model comparison.
 - **OUTCOME-RANKED-RECALL: ranking recall by *was-it-right* beats *was-it-recalled* on a near-duplicate case that
-  relevance can't solve.** Outcome-credit reranking beats relevance-only at every ambiguity level: lift **+0.345 /
-  +0.385 / +0.500 / +0.467** at D=1/2/4/8 (n=4 sets; every CI excludes 0). A random-credit control is *negative*
-  (-0.35 → -0.04), so the gain is the outcome signal, not reranking noise. The comparison arms (relevance-only /
+  relevance can't solve.** Outcome-credit reranking beats relevance-only at every ambiguity level: lift **+0.358 /
+  +0.361 / +0.469 / +0.427** at D=1/2/4/8 (**n=12 sets**, hardened from n=4; bootstrap CIs all exclude 0, min lower
+  bound +0.299). A random-credit control is *negative* (-0.30 → -0.07), so the gain is the outcome signal, not
+  reranking noise. The comparison arms (relevance-only /
   FTS5-BM25 / dense-vector / independent sklearn cosine) are denied the outcome label **by design** — this shows
   the *value* of an outcome/credit channel, it is **not** a head-to-head win over shipped products (mem0/Zep were
   not run).
@@ -86,6 +87,9 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.1.5** — **hardened OUTCOME-RANKED-RECALL from n=4 to n=12 sets** (`outcome_scale_result.json`):
+  lift +0.358/+0.361/+0.469/+0.427 at D=1/2/4/8, every bootstrap CI excludes 0 (min lower bound +0.299),
+  random-credit control stays negative. The flagship was-it-right>was-it-recalled claim is not small-n noise.
 - **v0.1.4** — added a **CROSS-SCOPE LEAKAGE** metric (`ramr_scope_leakage.py`) and `recall(scope=)`
   isolation in the engine: a shared store with two tenants sharing one schema leaks an A-fact into B's
   recall 79% of the time WITHOUT a scope; with `recall(scope='B')` leakage is 0% and in-scope recall 100%.
