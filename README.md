@@ -19,9 +19,9 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 
 - **Synthetic, not real-world.** Items are generated from random tokens (this is a feature — see "contamination
   resistance" — but it means we do **not** measure real-document retrieval or real-conversation memory yet).
-- **Scale.** Flagship metrics (CHAIN-FRAGILITY) are measured at n=200 with tight CIs; the memory-side metrics
-  (OUTCOME-RANKED-RECALL, FACT-RETENTION) are at smaller n (4 sets / tens of items). CIs are reported throughout;
-  treat small-n magnitudes as directional and the orderings as the signal.
+- **Scale.** Flagship metrics (CHAIN-FRAGILITY) are measured at n=200 with tight CIs; OUTCOME-RANKED-RECALL at
+  n=12 sets; FACT-RETENTION at n=5 sets. CIs are reported throughout; treat small-n magnitudes as directional and
+  the orderings as the signal.
 - **OUTCOME-RANKED uses one embedder** (local `nomic-embed-text`) and is validated against an *independent*
   standard retriever (scikit-learn cosine) — but not yet against shipped memory products (mem0/Zep/etc.).
 - **Answer matching is substring-based** on short synthetic answers; it is exact here because answers are unique
