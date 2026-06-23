@@ -86,6 +86,9 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.1.2** — added a **signal-reliability break-even** harness (`ramr_breakeven.py`): sweeps credit
+  reliability p x ambiguity D and shows recall-lift crosses zero at the no-signal floor 1/(1+D),
+  validating the law on the engine; also characterizes mnemo's `cal_mode` (full/boost/gated) tradeoff.
 - **v0.1.1** — added the **FORGET-PRECISION** metric (`ramr_forget_precision.py`). It surfaced a gap in the
   reference memory core (`mnemo`): supersession only fired on explicit negation, so a *silent numeric value-update*
   was merged as a duplicate and recall kept serving the stale value (forget-precision 0.00). Fixed by detecting a
