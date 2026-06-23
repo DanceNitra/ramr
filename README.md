@@ -31,7 +31,7 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 
 ---
 
-## What it measures (6 metrics)
+## What it measures (7 metrics)
 
 | Metric | Question | How |
 |---|---|---|
@@ -41,6 +41,7 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 | **FACT-RETENTION** | Does a compiled/summarized memory tier drop facts under a fixed budget? | raw − compiled, at a hard char budget |
 | **OUTCOME-RANKED-RECALL** | Does ranking recall by *was-it-right* beat *was-it-recalled*? | outcome-credit vs relevance-only, vs an independent retriever |
 | **FORGET-PRECISION** | After a fact is updated, does recall return the CURRENT value or the STALE one? | fraction returning the current fact after a supersession pass |
+| **COMPRESSION-vs-RAW** | Does a compiled summary beat the raw (noisy) context, or only lose to it? | acc(compiled) − acc(raw), swept over distractor load |
 
 ---
 
