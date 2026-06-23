@@ -27,6 +27,8 @@ trusted from a prose note). Last run: 2026-06-23.
 | CROSS-SCOPE LEAKAGE | scoped 0.00 leakage + 1.00 in-scope recall (vs 0.82 leakage with no scope) | scope_leakage_result.json | 5 seeds |
 | SIGNAL-RELIABILITY break-even | recall-lift crosses 0 at the floor 1/(1+D); cal 'full' gain +0.33 / backfire -0.47; 'boost' +0.00; 'gated' +0.19 | ramr_breakeven_result.json | 3 sets |
 
+| COMPRESSION-LIFT (compiled - raw) | +0.00 / -0.40 / -0.55 at K=5/20/50 distractors (compaction is a COST, not a gain, for a capable reader) | compression_oracle_result.json | N=20 |
+
 All flagship numbers are internally consistent (each headline equals the mean recomputed from the stored arrays).
 
 ## Previously UNBACKED — now RESOLVED (2026-06-23)

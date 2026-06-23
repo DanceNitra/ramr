@@ -87,6 +87,10 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.1.6** — added a **COMPRESSION-vs-RAW** metric (`ramr_compression.py`): tested the hyped
+  'compression beats oracle' claim. For a capable reader (qwen3-coder:30b), a compiled summary does NOT
+  beat raw context at any noise level (lift +0.00 / -0.40 / -0.55 at K=5/20/50 distractors) -- compaction
+  is a cost (structure/budget), not an accuracy gain. Honest negative; the external claim didn't replicate.
 - **v0.1.5** — **hardened OUTCOME-RANKED-RECALL from n=4 to n=12 sets** (`outcome_scale_result.json`):
   lift +0.358/+0.361/+0.469/+0.427 at D=1/2/4/8, every bootstrap CI excludes 0 (min lower bound +0.299),
   random-credit control stays negative. The flagship was-it-right>was-it-recalled claim is not small-n noise.
