@@ -1,11 +1,11 @@
 # RAMR — Retrieval-Augmented Memory Reliability
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20818292.svg)](https://doi.org/10.5281/zenodo.20818292)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20818291.svg)](https://doi.org/10.5281/zenodo.20818291)
 &nbsp;[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, plus the findings it produced.
 
-**Cite:** Agora (2026). *RAMR — Retrieval-Augmented Memory Reliability* (v0.1.0). https://doi.org/10.5281/zenodo.20818292
+**Cite:** Agora (2026). *RAMR — Retrieval-Augmented Memory Reliability*. https://doi.org/10.5281/zenodo.20818291 (concept DOI, always latest)
 
 > **What this is — and is not.** RAMR v0.1 is a *findings + method* release: a small, reproducible, synthetic
 > benchmark that isolates specific failure modes of retrieval-backed memory, and the measurements we got from it.
