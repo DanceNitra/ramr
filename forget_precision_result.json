@@ -1,1 +1,1 @@
-{"M": 30, "seeds": 6, "results": {"negation": {"baseline": 0.0, "consolidate": 1.0, "lift": 1.0, "ci": [1.0, 1.0]}, "value_update": {"baseline": 0.0, "consolidate": 0.9666666666666667, "lift": 0.9666666666666667, "ci": [0.9333333333333332, 1.0]}}}
+{"M": 30, "seeds": 6, "results": {"negation": {"baseline": 0.0, "consolidate": 1.0, "lift": 1.0, "ci": [1.0, 1.0]}, "value_update": {"baseline": 0.0, "consolidate": 1.0, "lift": 1.0, "ci": [1.0, 1.0]}}}

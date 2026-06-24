@@ -80,14 +80,24 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
     outcome-ranked beats this independent baseline by **+0.469 at D=8, CI [+0.438, +0.500]**.
 - **FORGET-PRECISION: a memory layer's ability to forget is only as good as its update detector.** After a fact is
   superseded, does recall return the current value? With the supersession pass, forget-precision is **1.00** for an
-  explicit contradiction ("X holds" → "X *not* holds") and, after fixing the update detector (see Changelog),
-  **0.97** for a silent numeric value-update ("…is 5" → "…is 12") — both up from 0.00 without supersession (the
-  stale, higher-value fact otherwise wins 100%). n=30 topics, 6 seeds.
+  explicit contradiction ("X holds" → "X *not* holds") and **1.00** for a silent numeric value-update ("…is 5" →
+  "…is 12") after the update detector is in place (see Changelog) — both up from 0.00 without supersession (the
+  stale, higher-value fact otherwise wins 100%). n=30 topics, 6 seeds. The detector is **two-sided**: it must
+  return the current value *without* deleting coexisting records — see SUPERSESSION-FALSE-POSITIVE
+  (`ramr_supersession_fp.py`), 0.00 false-positive on a 6-item enumerated store after the v0.1.7 fix.
 
 See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its source arrays).
 
 ## Changelog
 
+- **v0.1.7** — **fixed a supersession false-positive in the reference core (`mnemo`)** surfaced by a new severe
+  test (`ramr_supersession_fp.py`): the numeric value-update detector over-fired on ENUMERATED facts
+  (`"step 1 takes 5 min"`, `"step 2 takes 8 min"` strip to the same skeleton) and silently superseded coexisting
+  records — a 6-item store collapsed to 1/6 active. Fixed by comparing numbers POSITIONALLY (a value update changes
+  exactly one number-slot; multiple changed = distinct enumerated facts) → 6/6 survive. Regression-gated: the
+  published FORGET-PRECISION number is unchanged (negation 1.00, value-update 0.97→re-measured 1.00). FORGET-
+  PRECISION now reported with its dual — supersession should return the current value *without* deleting coexisting
+  ones.
 - **v0.1.6** — added a **COMPRESSION-vs-RAW** metric (`ramr_compression.py`): tested the hyped
   'compression beats oracle' claim. For a capable reader (qwen3-coder:30b), a compiled summary does NOT
   beat raw context at any noise level (lift +0.00 / -0.40 / -0.55 at K=5/20/50 distractors) -- compaction

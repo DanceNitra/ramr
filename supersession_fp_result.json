@@ -1,0 +1,15 @@
+{
+ "unit_detector_ok": true,
+ "enumerated": {
+  "n": 6,
+  "survived": 6,
+  "false_positive_rate": 0.0
+ },
+ "true_update": {
+  "active": [
+   "config alpha timeout is 12"
+  ],
+  "current_kept": true,
+  "stale_dropped": true
+ }
+}
