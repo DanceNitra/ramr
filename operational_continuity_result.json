@@ -1,0 +1,44 @@
+{
+ "n_current": 10,
+ "n_old": 200,
+ "seeds": 6,
+ "no_memory_baseline": 1.0,
+ "rows": [
+  {
+   "budget_k": 3,
+   "dup_decay_on": 0.7,
+   "dup_decay_off": 1.0,
+   "budget_floor": 0.7
+  },
+  {
+   "budget_k": 5,
+   "dup_decay_on": 0.5,
+   "dup_decay_off": 1.0,
+   "budget_floor": 0.5
+  },
+  {
+   "budget_k": 10,
+   "dup_decay_on": 0.0,
+   "dup_decay_off": 1.0,
+   "budget_floor": 0.0
+  },
+  {
+   "budget_k": 15,
+   "dup_decay_on": 0.0,
+   "dup_decay_off": 1.0,
+   "budget_floor": 0.0
+  },
+  {
+   "budget_k": 25,
+   "dup_decay_on": 0.0,
+   "dup_decay_off": 1.0,
+   "budget_floor": 0.0
+  },
+  {
+   "budget_k": 50,
+   "dup_decay_on": 0.0,
+   "dup_decay_off": 1.0,
+   "budget_floor": 0.0
+  }
+ ]
+}

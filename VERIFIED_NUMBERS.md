@@ -24,6 +24,7 @@ trusted from a prose note). Last run: 2026-06-23.
 | REAL-SYSTEM engines @D=8 (near-dup disambiguation) | keyword FTS5/BM25 0.18, vector 0.09 (chance 0.11); OUTCOME beats best +0.36 CI [+0.29,+0.44] | ramr_real_systems_result.json | 4 sets |
 | FORGET-PRECISION (negation / value-update) | 1.00 / 1.00 after supersession (both 0.00 without) | forget_precision_result.json | 6 sets |
 | SUPERSESSION-FALSE-POSITIVE (enumerated) | 0.00 (6/6 coexisting facts survive; was 5/6 deleted before the positional fix); true-update intact | supersession_fp_result.json | n=6 |
+| OPERATIONAL-CONTINUITY (idempotent resume) | duplicate-rate decay-ON tracks budget-floor (0.70/0.50/0.00 at k=3/5/10) vs decay-OFF 1.00 at every k; n_old=200 | operational_continuity_result.json | 6 seeds |
 | ABSTENTION @ floor 0.6 | abstention-precision 1.00 + in-store recall 1.00 (vs abstention 0.00 at floor 0) | abstention_result.json | 5 seeds |
 | CROSS-SCOPE LEAKAGE | scoped 0.00 leakage + 1.00 in-scope recall (vs 0.82 leakage with no scope) | scope_leakage_result.json | 5 seeds |
 | SIGNAL-RELIABILITY break-even | recall-lift crosses 0 at the floor 1/(1+D); cal 'full' gain +0.33 / backfire -0.47; 'boost' +0.00; 'gated' +0.19 | ramr_breakeven_result.json | 3 sets |

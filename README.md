@@ -31,7 +31,7 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 
 ---
 
-## What it measures (7 metrics)
+## What it measures (8 metrics)
 
 | Metric | Question | How |
 |---|---|---|
@@ -42,6 +42,7 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 | **OUTCOME-RANKED-RECALL** | Does ranking recall by *was-it-right* beat *was-it-recalled*? | outcome-credit vs relevance-only, vs an independent retriever |
 | **FORGET-PRECISION** | After a fact is updated, does recall return the CURRENT value or the STALE one? | fraction returning the current fact after a supersession pass |
 | **COMPRESSION-vs-RAW** | Does a compiled summary beat the raw (noisy) context, or only lose to it? | acc(compiled) − acc(raw), swept over distractor load |
+| **OPERATIONAL-CONTINUITY** | On resume after compaction, does the agent re-execute an already-completed action (a duplicate side-effect)? | duplicate-rate of a budget-limited resume recall, with vs without recency, against accumulated history |
 
 ---
 
@@ -86,10 +87,23 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   return the current value *without* deleting coexisting records — see SUPERSESSION-FALSE-POSITIVE
   (`ramr_supersession_fp.py`), 0.00 false-positive on a 6-item enumerated store after the v0.1.7 fix.
 
+- **OPERATIONAL-CONTINUITY: recency weighting is necessary AND sufficient for idempotent resume.** On resume, an
+  agent must skip already-completed actions; a missed "done" record → a duplicate side-effect. With recency (recent
+  completions out-rank old ones), the duplicate-rate tracks the recall-budget floor `max(0, C−k)/C` exactly — robust
+  to 200 accumulated old-session completions (e.g. 0.00 at budget k=10 ≥ C=10). WITHOUT recency, current completions
+  are indistinguishable from history → duplicate-rate stays **1.00 at every budget** (even k=50): the agent re-runs
+  everything. So recency isn't just for salience — it's what keeps current operational state recoverable as history
+  grows. (`ramr_operational_continuity.py`, pure-recall proxy, 6 seeds.)
+
 See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its source arrays).
 
 ## Changelog
 
+- **v0.1.8** — added an **OPERATIONAL-CONTINUITY** metric (`ramr_operational_continuity.py`): the idempotent-resume
+  failure mode (does the agent re-execute a completed action after compaction?). Result: recency weighting is
+  necessary AND sufficient — with it, duplicate-rate = the recall-budget floor (robust to unlimited history);
+  without it, 1.00 at every budget. A new agentic axis beyond fact recall (it measures a duplicate-side-effect cost,
+  not fact survival).
 - **v0.1.7** — **fixed a supersession false-positive in the reference core (`mnemo`)** surfaced by a new severe
   test (`ramr_supersession_fp.py`): the numeric value-update detector over-fired on ENUMERATED facts
   (`"step 1 takes 5 min"`, `"step 2 takes 8 min"` strip to the same skeleton) and silently superseded coexisting
