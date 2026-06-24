@@ -109,6 +109,18 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.4.0** — **Folklore Meter** (`ramr_folklore_meter.py`): a reusable tool that asks, of any AI-engineering
+  "folklore" mechanism, *does it actually help or is it a weak-model crutch?* It measures a claim the
+  contamination-resistant RAMR way — a CONTRARIAN, **judge-free exact-match** task, run across a **capability
+  gradient** (local Ollama models of increasing size + a pluggable frontier anchor) — and issues a verdict:
+  **REAL** (advantage persists at the frontier) / **WEAK-MODEL ARTIFACT** (helps weak models, ~0 at the frontier) /
+  **REGIME-SPECIFIC** / **NULL**. Robust answer extraction (only the `ANSWER:` line, retry-until-clean — no
+  last-number fallback, which silently confounds messier conditions). Two worked verdicts from this method
+  (2026-06-24): **decision-trace / "why"-memory → WEAK-MODEL ARTIFACT** (storing the rationale helps sub-frontier
+  models +0.1–0.3 but adds +0.00 for a frontier model, which re-derives it from the bare outcome); **multi-agent
+  vote-ensemble → REGIME-SPECIFIC** (an inverted-U in single-shot reliability: helps only sub-reliable models, +0.00
+  once a model solves the task reliably alone). Recurring lesson: *memory/agent-mechanism sophistication tends to be
+  a weak-model crutch — presence of the relevant fact matters, not the mechanism's cleverness.*
 - **v0.3.1** — **RESUME verdict semantics pinned** (with [safal207/LS#654](https://github.com/safal207/LS/issues/654),
   which verified the v0.3.0 canonical sources and aligned LS to the mapping). In the shared `ramr-ls-evidence-v0.1`
   standard, **`RESUME` means the tested continuation invariant passed — NOT global execution authorization**: it does
