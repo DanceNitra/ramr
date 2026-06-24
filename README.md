@@ -109,6 +109,15 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.3.0** — **RAMR↔LS fixture set now spans all four continuation verdicts.** Added 3 more canonical
+  `ramr-ls-evidence-v0.1` evidence fixtures (each frozen + sha256 digest for LS to pin):
+  `superseded_approval` → REJECT, `incomplete_dependency_chain` → ABSTAIN, `target_state_drift` → REVALIDATE
+  (with `duplicate_successful_outcome` → REJECT from v0.2.0). Plus `run_ramr_ls_fixtures.py`, a deterministic
+  conformance runner that scores each fixture's RAMR-side measured quantity (recovered_side_effect /
+  recovered_current_approval / full_chain_recovered / target_current) against the frozen `expected` — all PASS.
+  Boundary stays: RAMR measures retrieval reliability, LS owns the verdict; *a retrieval miss is a reliability
+  failure, not execution permission*. `superseded_approval` + `target_state_drift` ride mnemo's bi-temporal
+  `valid_from`/`invalidated_at`; `incomplete_dependency_chain` rides CHAIN-FRAGILITY.
 - **v0.2.0** — **RAMR↔LS interoperability** (collaboration with [safal207/LS](https://github.com/safal207/LS),
   [anthropics/claude-code#34556](https://github.com/anthropics/claude-code/issues/34556)). RAMR hosts the canonical
   `ramr-ls-evidence-v0.1` evidence fixture (`fixtures/ramr_ls/duplicate_successful_outcome.json`, frozen + sha256
