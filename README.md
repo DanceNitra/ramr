@@ -109,6 +109,18 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.2.0** — **RAMR↔LS interoperability** (collaboration with [safal207/LS](https://github.com/safal207/LS),
+  [anthropics/claude-code#34556](https://github.com/anthropics/claude-code/issues/34556)). RAMR hosts the canonical
+  `ramr-ls-evidence-v0.1` evidence fixture (`fixtures/ramr_ls/duplicate_successful_outcome.json`, frozen + sha256
+  digest) and a reliability-layer reference harness (`ramr_ls_evidence.py`) that emits the envelope from a memory
+  store as a thin projection of native fields (bi-temporal `valid_from`/`invalidated_at`, `provenance`, Beta
+  `reliability_signal`, recall `budget`) and scores `recovered_side_effect`. Boundary: **RAMR measures retrieval
+  reliability; LS evaluates the deterministic continuation verdict.** Invariant: *a retrieval miss is a reliability
+  failure, not execution permission* — so a duplicate completed side effect is REJECTed whether or not the record
+  was recovered. Also lands two `mnemo` upgrades used by the envelope (both regression-gated, no metric change):
+  **source-span provenance** (`remember(source=)`, surfaced in `recall()`) and a **poison-propagation guard**
+  (episodic→semantic graduation now requires corroboration — provenance, a positive outcome, or a corroborating
+  link — so a confabulation can't become durable on recall-frequency alone).
 - **v0.1.9** — added a **TEMPORAL-AS-OF** metric (`ramr_temporal_asof.py`) and **bi-temporal validity** in the
   reference core (`mnemo`): `remember(valid_from=)`, supersession resolves by validity-time not ingest-order, and
   `recall(as_of=T)`. Result: under reversed ingest (stale fact arrives later), the old ingest-order rule serves the
