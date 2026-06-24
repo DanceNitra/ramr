@@ -109,6 +109,12 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.3.1** — **RESUME verdict semantics pinned** (with [safal207/LS#654](https://github.com/safal207/LS/issues/654),
+  which verified the v0.3.0 canonical sources and aligned LS to the mapping). In the shared `ramr-ls-evidence-v0.1`
+  standard, **`RESUME` means the tested continuation invariant passed — NOT global execution authorization**: it does
+  not bypass downstream policy, approval, or effect gates. Semantic clarification only — fixture bytes and sha256
+  digests are unchanged, so existing pins (incl. LS#654) stay valid. The envelope is now aligned end-to-end; any
+  future semantic change is a new envelope version.
 - **v0.3.0** — **RAMR↔LS fixture set now spans all four continuation verdicts.** Added 3 more canonical
   `ramr-ls-evidence-v0.1` evidence fixtures (each frozen + sha256 digest for LS to pin):
   `superseded_approval` → REJECT, `incomplete_dependency_chain` → ABSTAIN, `target_state_drift` → REVALIDATE

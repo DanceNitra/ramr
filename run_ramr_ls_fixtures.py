@@ -4,6 +4,8 @@ For each fixture it scores the RAMR-side measured quantity per case (purely from
 query_context/authoritative_state — no model needed) and checks it against `expected`. LS consumes the SAME frozen
 files and checks the deterministic continuation verdict on its side. RAMR's job is reliability MEASUREMENT; LS's is
 the verdict — and the four fixtures span the four verdicts (REJECT / REJECT / ABSTAIN / REVALIDATE).
+Verdict semantics (aligned with safal207/LS#654): RESUME = the tested continuation invariant passed; it is NOT
+global execution authorization and does not bypass downstream policy, approval, or effect gates.
 
 `ramr_ls_evidence.py` shows RAMR *produces* the envelope from a live memory store (bi-temporal valid_from/
 invalidated_at, provenance, Beta reliability, recall budget); this runner is the frozen-fixture conformance check.
