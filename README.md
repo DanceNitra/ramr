@@ -31,7 +31,7 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 
 ---
 
-## What it measures (8 metrics)
+## What it measures (9 metrics)
 
 | Metric | Question | How |
 |---|---|---|
@@ -43,6 +43,7 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 | **FORGET-PRECISION** | After a fact is updated, does recall return the CURRENT value or the STALE one? | fraction returning the current fact after a supersession pass |
 | **COMPRESSION-vs-RAW** | Does a compiled summary beat the raw (noisy) context, or only lose to it? | acc(compiled) − acc(raw), swept over distractor load |
 | **OPERATIONAL-CONTINUITY** | On resume after compaction, does the agent re-execute an already-completed action (a duplicate side-effect)? | duplicate-rate of a budget-limited resume recall, with vs without recency, against accumulated history |
+| **TEMPORAL-AS-OF** | When a stale fact arrives LATER than the current one (out-of-order ingest), does supersession resolve by validity-time, not ingest-order? | recall-now accuracy under reversed ingest + recall(as_of=T) returns the value valid at T |
 
 ---
 
@@ -96,10 +97,24 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   grows. (`ramr_operational_continuity.py`, pure-recall proxy, 6 seeds. Metric proposed by @safal207 in
   claude-code#34556; this is a first cut — fixture input welcome.)
 
+- **TEMPORAL-AS-OF: supersession must resolve by validity-time, not ingest-order.** When a stale fact about an
+  earlier state arrives LATER than the current one (back-fill / replayed log / multi-source merge), an ingest-order
+  "last-write-wins" rule keeps the stale record (it has the later `ts`) — `now_accuracy` 0.00 by construction.
+  Resolving by `valid_from` (when the fact is TRUE) instead serves the **current** value (now_accuracy **1.00**) and
+  `recall(as_of=T)` returns the value that was valid at T (as_of_accuracy **1.00**). The reference engine now carries
+  `valid_from` / `invalidated_at` (defaulting to ingest-time, so ordered streams are unchanged).
+  (`ramr_temporal_asof.py`, deterministic, 20 topics × 6 seeds.)
+
 See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its source arrays).
 
 ## Changelog
 
+- **v0.1.9** — added a **TEMPORAL-AS-OF** metric (`ramr_temporal_asof.py`) and **bi-temporal validity** in the
+  reference core (`mnemo`): `remember(valid_from=)`, supersession resolves by validity-time not ingest-order, and
+  `recall(as_of=T)`. Result: under reversed ingest (stale fact arrives later), the old ingest-order rule serves the
+  STALE value (now_accuracy 0.00) while validity-time serves the CURRENT one (1.00) and as-of recall returns the
+  historical value (1.00). FORGET-PRECISION + SUPERSESSION-FP + OPERATIONAL-CONTINUITY unchanged (valid_from
+  defaults to ingest-time, so ordered streams are byte-identical).
 - **v0.1.8** — added an **OPERATIONAL-CONTINUITY** metric (`ramr_operational_continuity.py`) — the idempotent-resume
   property **proposed by @safal207 in [anthropics/claude-code#34556](https://github.com/anthropics/claude-code/issues/34556)**;
   this is a first runnable cut of that idea, and input on the fixtures is welcome. It tests: does the agent

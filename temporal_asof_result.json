@@ -1,0 +1,8 @@
+{
+ "n_topics": 20,
+ "seeds": 6,
+ "total": 120,
+ "now_accuracy_bitemporal": 1.0,
+ "asof_accuracy": 1.0,
+ "now_accuracy_ingest_rule": 0.0
+}

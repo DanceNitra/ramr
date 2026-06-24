@@ -25,6 +25,7 @@ trusted from a prose note). Last run: 2026-06-23.
 | FORGET-PRECISION (negation / value-update) | 1.00 / 1.00 after supersession (both 0.00 without) | forget_precision_result.json | 6 sets |
 | SUPERSESSION-FALSE-POSITIVE (enumerated) | 0.00 (6/6 coexisting facts survive; was 5/6 deleted before the positional fix); true-update intact | supersession_fp_result.json | n=6 |
 | OPERATIONAL-CONTINUITY (idempotent resume) | duplicate-rate decay-ON tracks budget-floor (0.70/0.50/0.00 at k=3/5/10) vs decay-OFF 1.00 at every k; n_old=200 | operational_continuity_result.json | 6 seeds |
+| TEMPORAL-AS-OF (bi-temporal, reversed ingest) | now-accuracy 1.00 by valid_from (vs 0.00 by ingest-order); as-of accuracy 1.00 | temporal_asof_result.json | 20 topics x 6 seeds |
 | ABSTENTION @ floor 0.6 | abstention-precision 1.00 + in-store recall 1.00 (vs abstention 0.00 at floor 0) | abstention_result.json | 5 seeds |
 | CROSS-SCOPE LEAKAGE | scoped 0.00 leakage + 1.00 in-scope recall (vs 0.82 leakage with no scope) | scope_leakage_result.json | 5 seeds |
 | SIGNAL-RELIABILITY break-even | recall-lift crosses 0 at the floor 1/(1+D); cal 'full' gain +0.33 / backfire -0.47; 'boost' +0.00; 'gated' +0.19 | ramr_breakeven_result.json | 3 sets |
