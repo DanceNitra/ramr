@@ -93,14 +93,17 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   to 200 accumulated old-session completions (e.g. 0.00 at budget k=10 ≥ C=10). WITHOUT recency, current completions
   are indistinguishable from history → duplicate-rate stays **1.00 at every budget** (even k=50): the agent re-runs
   everything. So recency isn't just for salience — it's what keeps current operational state recoverable as history
-  grows. (`ramr_operational_continuity.py`, pure-recall proxy, 6 seeds.)
+  grows. (`ramr_operational_continuity.py`, pure-recall proxy, 6 seeds. Metric proposed by @safal207 in
+  claude-code#34556; this is a first cut — fixture input welcome.)
 
 See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its source arrays).
 
 ## Changelog
 
-- **v0.1.8** — added an **OPERATIONAL-CONTINUITY** metric (`ramr_operational_continuity.py`): the idempotent-resume
-  failure mode (does the agent re-execute a completed action after compaction?). Result: recency weighting is
+- **v0.1.8** — added an **OPERATIONAL-CONTINUITY** metric (`ramr_operational_continuity.py`) — the idempotent-resume
+  property **proposed by @safal207 in [anthropics/claude-code#34556](https://github.com/anthropics/claude-code/issues/34556)**;
+  this is a first runnable cut of that idea, and input on the fixtures is welcome. It tests: does the agent
+  re-execute a completed action after compaction? Result: recency weighting is
   necessary AND sufficient — with it, duplicate-rate = the recall-budget floor (robust to unlimited history);
   without it, 1.00 at every budget. A new agentic axis beyond fact recall (it measures a duplicate-side-effect cost,
   not fact survival).
