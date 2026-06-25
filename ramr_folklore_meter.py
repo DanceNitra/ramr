@@ -50,13 +50,15 @@ def extract_int(text: str):
     return int(m[-1].replace(",", "")) if m else None
 
 
-def ask_clean(call, prompt: str, retries: int = 3):
-    """Call `call(prompt)->text`, retrying until a clean ANSWER: line is present (removes a format-compliance
-    confound that otherwise penalises whichever condition produces messier output)."""
+def ask_clean(call, prompt: str, extractor=extract_int, retries: int = 3):
+    """Call `call(prompt)->text`, retrying until `extractor(text)` returns a non-None value (removes a
+    format-compliance confound that otherwise penalises whichever condition produces messier output).
+    `extractor` defaults to the strict ANSWER-line int parser; pass a custom one (returning any hashable value
+    or None) for string / abstention / multiple-choice claims."""
     t = ""
     for _ in range(retries):
         t = call(prompt)
-        v = extract_int(t)
+        v = extractor(t)
         if v is not None:
             return v
     return None
@@ -80,8 +82,8 @@ def run_claim(claim: dict, models: list, frontier: tuple | None = None, samples:
         b_hit = m_hit = n = 0
         for it in claim["items"]:
             # baseline vs mechanism, self-consistency over `samples`, robust extraction
-            b = majority([ask_clean(call, it["prompt_baseline"]) for _ in range(samples)])
-            mm = majority([ask_clean(call, it["prompt_mechanism"]) for _ in range(samples)])
+            b = majority([ask_clean(call, it["prompt_baseline"], extractor) for _ in range(samples)])
+            mm = majority([ask_clean(call, it["prompt_mechanism"], extractor) for _ in range(samples)])
             b_hit += (b == it["gold"]); m_hit += (mm == it["gold"]); n += 1
         rows[label] = {"baseline": round(b_hit / n, 3), "mechanism": round(m_hit / n, 3),
                        "advantage": round((m_hit - b_hit) / n, 3)}

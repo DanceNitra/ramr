@@ -109,6 +109,7 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.4.1** — Folklore Meter fix: `ask_clean`/`run_claim` now honour a claim's custom **`extractor`** (it was read but ignored — `extract_int` was hardcoded), so the meter works for string / abstention / multiple-choice claims, not just integer answers. Unit-tested with a string extractor.
 - **v0.4.0** — **Folklore Meter** (`ramr_folklore_meter.py`): a reusable tool that asks, of any AI-engineering
   "folklore" mechanism, *does it actually help or is it a weak-model crutch?* It measures a claim the
   contamination-resistant RAMR way — a CONTRARIAN, **judge-free exact-match** task, run across a **capability
