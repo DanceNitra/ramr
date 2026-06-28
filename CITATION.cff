@@ -7,6 +7,9 @@ identifiers:
     value: 10.5281/zenodo.20818291
     description: "Zenodo concept DOI (always resolves to the latest version)"
   - type: doi
+    value: 10.5281/zenodo.20996166
+    description: "Zenodo archive (v0.4.1)"
+  - type: doi
     value: 10.5281/zenodo.20818813
     description: "Zenodo archive (v0.1.1)"
 abstract: >-
