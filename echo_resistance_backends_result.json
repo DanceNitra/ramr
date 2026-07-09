@@ -1,0 +1,14 @@
+{
+  "mnemo (echo_guard=off)": {
+    "forget_precision": 1.0,
+    "echo_resistance": 0.0
+  },
+  "mnemo (echo_guard=on)": {
+    "forget_precision": 1.0,
+    "echo_resistance": 1.0
+  },
+  "mem0 (add-based, read-time reconcile)": {
+    "forget_precision": 1.0,
+    "echo_resistance": 0.567
+  }
+}

@@ -101,6 +101,25 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   The adversarial post-correction restatement is unmeasured in prior benchmarks (STALE / LongMemEval run a single
   correction, no re-injection).
 
+  **Cross-backend, ANSWER-LEVEL (the fair comparison).** A top-1 retrieval metric is fair to a supersession store
+  (which *removes* the stale value) but a strawman for an *add-based* store like **mem0**, whose design keeps both
+  values and reconciles at read time (top-k handed to an answering LLM) — so we also score echo-resistance at the
+  answer level: recall top-k → judge LLM → is the CURRENT value returned? Fair to both designs. Measured (n=30,
+  judge = a small instruct model, `ramr_echo_resistance_backends.py`):
+
+  | backend | forget-precision | echo-resistance |
+  |---|---|---|
+  | mnemo (echo_guard off) | 1.00 | 0.00 |
+  | **mem0 2.0.11** (add-based, real system) | 1.00 | **0.57** |
+  | mnemo (echo_guard on) | 1.00 | **1.00** |
+
+  At the answer level every backend keeps the *correction* (forget-precision 1.00), but under a value-preserving
+  reworded echo **real mem0 resurrects the retired value ~43% of the time** (echo-resistance 0.57) — its extractor
+  writes a "reverted back to <old>" memory that the reader then trusts. mnemo's default keyed supersession is fully
+  vulnerable (0.00); `echo_guard` closes it (1.00). Honest scope: value-preserving echoes; single judge model;
+  n=30; mem0 run fully local (Ollama LLM+embedder, Chroma). Add a backend via a 3-method adapter to benchmark your
+  own store.
+
 - **OPERATIONAL-CONTINUITY: recency weighting is necessary AND sufficient for idempotent resume.** On resume, an
   agent must skip already-completed actions; a missed "done" record → a duplicate side-effect. With recency (recent
   completions out-rank old ones), the duplicate-rate tracks the recall-budget floor `max(0, C−k)/C` exactly — robust
