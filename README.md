@@ -111,7 +111,15 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   |---|---|---|
   | mnemo (echo_guard off) | 1.00 | 0.00 |
   | **mem0 2.0.11** (add-based, real system) | 0.87 | **0.53** (95% CI 0.37–0.70) |
+  | **Zep/Graphiti** (Neo4j + OpenAI, real runtime) | 0.87 | **0.87** — echo-attributable **1.00** † |
   | mnemo (echo_guard on) | 1.00 | **1.00** |
+
+  † Graphiti's raw 0.87 is not an echo failure. Disaggregating pre-echo vs post-echo per case (n=30): in the
+  **26/30 cases where the correction actually registered, the echo flipped exactly 0 of them** (echo-attributable
+  resurrection 0/26 = 0.00). The residual 13% is 4 cases where Graphiti's LLM extraction never wrote the correction
+  at all (pre-echo already stale) — an upstream extraction miss, unrelated to the attack. So Graphiti's bi-temporal
+  invalidation **fully defends** against the echo; unlike mem0's 0.53, whose resurrection is echo-driven (14/30 flips
+  ≫ its 4/30 pre-echo misses).
 
   At the answer level (recall top-k → judge LLM → is the current value returned?), under a value-preserving reworded
   echo **real mem0, run in its own recommended config (gpt-4o-mini + text-embedding-3-small + Chroma), resurrects
@@ -124,16 +132,19 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   a definitive benchmark; report the CI, not a point estimate. Add a backend via a 3-method adapter to benchmark
   your own store.
 
-  **Zep/Graphiti — code-verified, not yet runtime.** We could not run Graphiti end-to-end in this environment:
-  its extraction pipeline requires strict structured-output schema adherence that our local/OSS-cloud judge
-  models don't produce (they return valid JSON with the wrong field names), and we declined to shim the parser
-  rather than risk a non-faithful number. From reading its source (`graphiti_core/utils/maintenance/edge_operations.py`),
-  Graphiti is expected to **defend** against this echo: `get_between_nodes` has no validity filter, so the
-  already-invalidated stale edge is surfaced as a dedup candidate; a verbatim echo folds onto it via the
-  `_normalize_string_exact` fast-path before any LLM call, and a reworded one is handed to the resolver LLM with
-  the stale edge present to dedup against. So its expected echo-resistance is high (~1.0) — but that is a
-  code-path reading, not a measured number, and a runtime confirmation (with an OpenAI/Anthropic-class judge that
-  meets the schema contract) is future work.
+  **Zep/Graphiti — measured at runtime, and it defends.** We ran Graphiti end-to-end (real `graphiti_core`,
+  Neo4j backend, OpenAI `gpt-4o-mini` + `text-embedding-3-small` for extraction/embedding, n=30, same
+  correction→echo→recall→judge protocol). Confirming the code-path reading: when the correction registers,
+  the echo resurrects the stale value **0 out of 26 times** — Graphiti's bi-temporal invalidation surfaces the
+  already-invalidated stale edge as a dedup candidate (`get_between_nodes` has no validity filter), so a verbatim
+  echo folds onto it via the `_normalize_string_exact` fast-path and a reworded one is handed to the resolver LLM
+  with the stale edge present to dedup against. The only staleness (4/30) is Graphiti's extraction pipeline never
+  writing the correction in the first place (a `Target entity not found` extraction miss), which the echo neither
+  causes nor exploits. **Takeaway: this is not "mnemo defends, Graphiti doesn't" — a real bi-temporal store and an
+  object-keyed ledger both defend, structurally.** mnemo's edge is being a single zero-dependency file with no graph
+  DB or LLM-extraction step (which is exactly where Graphiti's 13% leaks), and the still-open frontier both share:
+  a value-*obscuring* echo ("go back to the old one") carries no value to invalidate against and defeats object-level
+  and edge-level defenses alike. `graphiti_echo_run.py`.
 
 - **OPERATIONAL-CONTINUITY: recency weighting is necessary AND sufficient for idempotent resume.** On resume, an
   agent must skip already-completed actions; a missed "done" record → a duplicate side-effect. With recency (recent

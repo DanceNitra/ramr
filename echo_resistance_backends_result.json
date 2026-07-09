@@ -19,5 +19,19 @@
     ],
     "n": 30,
     "note": "reproduces the earlier all-local Ollama-config run (echo_resistance 0.567); config-robust ~0.43-0.47 resurrection"
+  },
+  "graphiti 0.x (Neo4j + OpenAI native: gpt-4o-mini + text-embedding-3-small)": {
+    "forget_precision": 0.867,
+    "echo_resistance": 0.867,
+    "resurrection_rate": 0.133,
+    "resurrection_95CI": [
+      0.033,
+      0.267
+    ],
+    "n": 30,
+    "correction_held_pre_echo": 26,
+    "echo_attributable_flips": 0,
+    "echo_attributable_resurrection": 0.0,
+    "note": "bi-temporal invalidation DEFENDS: 0/26 corrections flipped by the echo; the 0.133 raw resurrection is 4 pre-echo extraction misses (correction never registered), not the attack. Contrast mem0 0.467 (echo-driven)."
   }
 }
