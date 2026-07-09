@@ -120,6 +120,17 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   n=30; mem0 run fully local (Ollama LLM+embedder, Chroma). Add a backend via a 3-method adapter to benchmark your
   own store.
 
+  **Zep/Graphiti — code-verified, not yet runtime.** We could not run Graphiti end-to-end in this environment:
+  its extraction pipeline requires strict structured-output schema adherence that our local/OSS-cloud judge
+  models don't produce (they return valid JSON with the wrong field names), and we declined to shim the parser
+  rather than risk a non-faithful number. From reading its source (`graphiti_core/utils/maintenance/edge_operations.py`),
+  Graphiti is expected to **defend** against this echo: `get_between_nodes` has no validity filter, so the
+  already-invalidated stale edge is surfaced as a dedup candidate; a verbatim echo folds onto it via the
+  `_normalize_string_exact` fast-path before any LLM call, and a reworded one is handed to the resolver LLM with
+  the stale edge present to dedup against. So its expected echo-resistance is high (~1.0) — but that is a
+  code-path reading, not a measured number, and a runtime confirmation (with an OpenAI/Anthropic-class judge that
+  meets the schema contract) is future work.
+
 - **OPERATIONAL-CONTINUITY: recency weighting is necessary AND sufficient for idempotent resume.** On resume, an
   agent must skip already-completed actions; a missed "done" record → a duplicate side-effect. With recency (recent
   completions out-rank old ones), the duplicate-rate tracks the recall-budget floor `max(0, C−k)/C` exactly — robust
