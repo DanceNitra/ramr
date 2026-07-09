@@ -110,15 +110,19 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   | backend | forget-precision | echo-resistance |
   |---|---|---|
   | mnemo (echo_guard off) | 1.00 | 0.00 |
-  | **mem0 2.0.11** (add-based, real system) | 1.00 | **0.57** |
+  | **mem0 2.0.11** (add-based, real system) | 0.87 | **0.53** (95% CI 0.37–0.70) |
   | mnemo (echo_guard on) | 1.00 | **1.00** |
 
-  At the answer level every backend keeps the *correction* (forget-precision 1.00), but under a value-preserving
-  reworded echo **real mem0 resurrects the retired value ~43% of the time** (echo-resistance 0.57) — its extractor
-  writes a "reverted back to <old>" memory that the reader then trusts. mnemo's default keyed supersession is fully
-  vulnerable (0.00); `echo_guard` closes it (1.00). Honest scope: value-preserving echoes; single judge model;
-  n=30; mem0 run fully local (Ollama LLM+embedder, Chroma). Add a backend via a 3-method adapter to benchmark your
-  own store.
+  At the answer level (recall top-k → judge LLM → is the current value returned?), under a value-preserving reworded
+  echo **real mem0, run in its own recommended config (gpt-4o-mini + text-embedding-3-small + Chroma), resurrects
+  the retired value ~47% of the time** — echo-resistance 0.53, 95% CI on resurrection [0.30, 0.63], n=30. It
+  reproduces an all-local Ollama-config run (0.57), so the effect is config-robust, not an artifact of one judge.
+  This isn't a "mem0 bug": an add-based store keeps both values and reconciles at read time, and the reader
+  sometimes returns the retired one (its extractor writes a "reverted back to <old>" record — observed in inspected
+  cases). mnemo's default keyed supersession is fully vulnerable (0.00, store-deterministic); `echo_guard` closes it
+  (1.00). Honest scope: a small synthetic probe (n=30), value-preserving echoes, single judge — a demonstration, not
+  a definitive benchmark; report the CI, not a point estimate. Add a backend via a 3-method adapter to benchmark
+  your own store.
 
   **Zep/Graphiti — code-verified, not yet runtime.** We could not run Graphiti end-to-end in this environment:
   its extraction pipeline requires strict structured-output schema adherence that our local/OSS-cloud judge

@@ -1,14 +1,23 @@
 {
   "mnemo (echo_guard=off)": {
     "forget_precision": 1.0,
-    "echo_resistance": 0.0
+    "echo_resistance": 0.0,
+    "note": "store-deterministic (judge-independent)"
   },
   "mnemo (echo_guard=on)": {
     "forget_precision": 1.0,
-    "echo_resistance": 1.0
+    "echo_resistance": 1.0,
+    "note": "store-deterministic (judge-independent)"
   },
-  "mem0 (add-based, read-time reconcile)": {
-    "forget_precision": 1.0,
-    "echo_resistance": 0.567
+  "mem0 2.0.11 (native OpenAI config: gpt-4o-mini + text-embedding-3-small + chroma)": {
+    "forget_precision": 0.867,
+    "echo_resistance": 0.533,
+    "resurrection_rate": 0.467,
+    "resurrection_95CI": [
+      0.3,
+      0.633
+    ],
+    "n": 30,
+    "note": "reproduces the earlier all-local Ollama-config run (echo_resistance 0.567); config-robust ~0.43-0.47 resurrection"
   }
 }
