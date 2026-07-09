@@ -1,0 +1,25 @@
+{
+  "verbatim": {
+    "n": 30,
+    "no_guard": {
+      "forget_precision": 1.0,
+      "echo_resistance": 0.0
+    },
+    "guard": {
+      "forget_precision": 1.0,
+      "echo_resistance": 1.0
+    }
+  },
+  "reworded": {
+    "n": 30,
+    "no_guard": {
+      "forget_precision": 1.0,
+      "echo_resistance": 0.0
+    },
+    "guard": {
+      "forget_precision": 1.0,
+      "echo_resistance": 1.0
+    }
+  },
+  "verdict": "PASS -- echo_guard raises echo-resistance without hurting forget-precision"
+}

@@ -41,6 +41,7 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 | **FACT-RETENTION** | Does a compiled/summarized memory tier drop facts under a fixed budget? | raw − compiled, at a hard char budget |
 | **OUTCOME-RANKED-RECALL** | Does ranking recall by *was-it-right* beat *was-it-recalled*? | outcome-credit vs relevance-only, vs an independent retriever |
 | **FORGET-PRECISION** | After a fact is updated, does recall return the CURRENT value or the STALE one? | fraction returning the current fact after a supersession pass |
+| **ECHO-RESISTANCE** | After a correction, if the OLD value is re-stated (verbatim or reworded), does the store keep the corrected value or resurrect the stale one? | fraction whose recall top-1 is the current value AFTER a value-preserving restatement of the retired value |
 | **COMPRESSION-vs-RAW** | Does a compiled summary beat the raw (noisy) context, or only lose to it? | acc(compiled) − acc(raw), swept over distractor load |
 | **OPERATIONAL-CONTINUITY** | On resume after compaction, does the agent re-execute an already-completed action (a duplicate side-effect)? | duplicate-rate of a budget-limited resume recall, with vs without recency, against accumulated history |
 | **TEMPORAL-AS-OF** | When a stale fact arrives LATER than the current one (out-of-order ingest), does supersession resolve by validity-time, not ingest-order? | recall-now accuracy under reversed ingest + recall(as_of=T) returns the value valid at T |
@@ -87,6 +88,18 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   stale, higher-value fact otherwise wins 100%). n=30 topics, 6 seeds. The detector is **two-sided**: it must
   return the current value *without* deleting coexisting records — see SUPERSESSION-FALSE-POSITIVE
   (`ramr_supersession_fp.py`), 0.00 false-positive on a 6-item enumerated store after the v0.1.7 fix.
+
+- **ECHO-RESISTANCE: a correction that sticks can still be undone by simply re-stating the old value.**
+  FORGET-PRECISION shows the correction holds (1.00). But when the retired value is re-asserted afterwards — a
+  benign restatement or an attacker re-injecting it — a last-writer-wins / validity-recency store treats the echo as
+  the newest assertion and **resurrects the stale value: echo-resistance 0.00** (verbatim AND reworded, n=30). A
+  superseded-object ledger (`mnemo` `echo_guard`, object-keyed) refuses to let an already-retired value be revived
+  by a mere restatement → **echo-resistance 1.00**, with FORGET-PRECISION unchanged (the correction still sticks). A
+  *genuine* reversal back to the old value needs an explicit `reaffirm` signal. Honest scope: this tests
+  **value-preserving** restatements (the value token is present) — a value-*obscuring* / coreferent echo ("go back to
+  the old one") carries no value to key on and is out of scope for any object-level defense. `ramr_echo_resistance.py`.
+  The adversarial post-correction restatement is unmeasured in prior benchmarks (STALE / LongMemEval run a single
+  correction, no re-injection).
 
 - **OPERATIONAL-CONTINUITY: recency weighting is necessary AND sufficient for idempotent resume.** On resume, an
   agent must skip already-completed actions; a missed "done" record → a duplicate side-effect. With recency (recent
