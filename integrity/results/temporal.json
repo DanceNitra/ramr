@@ -1,0 +1,25 @@
+{
+  "cell": "temporal",
+  "deterministic": true,
+  "judge": "none (unique-token ground truth)",
+  "honest_scope": "PARITY-with-leaders cell, not a mnemo-uniqueness claim; graph-memory leaders (Zep, Graphiti) are also bi-temporal and are not run here.",
+  "systems": {
+    "mnemo": {
+      "now_accuracy_reversed_ingest": true,
+      "as_of_valid_time": true,
+      "transaction_time_backfill": true,
+      "score": "4/4"
+    },
+    "mem0": {
+      "now_accuracy_reversed_ingest": false,
+      "as_of_valid_time": "N/A (no valid-time API)",
+      "transaction_time_backfill": "N/A (no valid-time API)",
+      "score": "no valid-time channel",
+      "top1": "my role is ROLE-MANAGER"
+    }
+  },
+  "not_run": {
+    "zep": "documented bi-temporal (valid + transaction time, point-in-time) -- expected PARITY; not run",
+    "graphiti": "documented bi-temporal (valid_at/invalid_at + created_at) -- expected PARITY; not run"
+  }
+}

@@ -62,11 +62,22 @@ libraries developers actually run, through one shared, ground-truth-blind judge 
   tool: point it at your installed backend(s); it stores a marker, calls that backend's OWN `delete` + compaction,
   reads the raw store, and reports logical residue. Makes **no vendor claim** — the result is yours. Honest scope
   printed every run (logical vs at-rest residue; audit-log-by-design; coordinated disclosure).
+- **Bi-temporal** ([`integrity/temporal_cell.py`](integrity/temporal_cell.py)) — deterministic (unique-token
+  ground truth, no judge): reversed-ingest now-accuracy, `as_of(valid-time)` point queries, and a transaction-time
+  back-fill (a later correction must not leak into the earlier belief). **This is a parity-with-leaders cell, not
+  a mnemo win** — bi-temporal modelling is the *documented design* of the graph-memory leaders **Zep**
+  ([arXiv:2501.13956](https://arxiv.org/abs/2501.13956), `t_valid/t_invalid` vs `t′created/t′expired`) and
+  **Graphiti** ([getzep/graphiti](https://github.com/getzep/graphiti), `valid_at/invalid_at` + `created_at`), which
+  are **not run here** (they need a live Neo4j + LLM pipeline) and are listed, not scored. Measured this cycle:
+  **mnemo 4/4**; **mem0** (default vector store) has no valid-time channel (reversed-ingest returns the stale
+  value; no `as_of`). Result: mnemo *matches* the bi-temporal leaders and *leads* plain vector stores — it does
+  not beat Zep/Graphiti on this axis, and we don't claim it does.
 
 ```bash
 pip install agora-mnemo
 python integrity/run.py                      # revert + echo, local free Ollama judge
 python integrity/erasure_selfcheck.py        # your stack's erasure receipt
+python integrity/temporal_cell.py            # bi-temporal cell -> results/temporal.json
 ```
 
 Method, the fairness fix that dropped mnemo's revert headline from a flattering 1.00 to 0.75, and how to add
