@@ -1,0 +1,31 @@
+{
+  "fixture": "two_writer_coherence",
+  "subject": "staging database host",
+  "v1": "The staging database host is db-old.internal",
+  "v2": "The staging database host is db-new.internal",
+  "query": "what is the staging database host?",
+  "iso": "2026-07-19T21:44:36Z",
+  "rows": {
+    "mnemo": {
+      "serve_correction": true,
+      "echo_resistance": true,
+      "witness": "supported",
+      "witness_detects_echo": true
+    },
+    "naive": {
+      "serve_correction": true,
+      "echo_resistance": false,
+      "witness": "not supported"
+    },
+    "mem0": {
+      "serve_correction": true,
+      "echo_resistance": true,
+      "witness": "not supported"
+    },
+    "chroma": {
+      "serve_correction": true,
+      "echo_resistance": true,
+      "witness": "not supported"
+    }
+  }
+}

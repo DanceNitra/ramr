@@ -102,6 +102,24 @@ ambiguity can bite.
 This cell is the honest counterweight to the revert cell: on the attack that actually matters (resurrection),
 mnemo does **not** win — every system lands at or near zero. Publishing that is the whole point.
 
+## two-writer retrieval coherence (`two_writer_coherence.py`)
+
+"Step 6" of the shared-team-memory two-writer test discussed on anthropics/claude-code#38536: governance
+(append-only, gated promotion) decides accepted truth, but retrieval can still rank a retired value first —
+a stale serve the receiving agent never sees. The fixture drives each backend's OWN operations: store V1 →
+correct to V2 (the backend's own mechanism; delete+add where nothing better exists) → a stale writer
+re-asserts V1 → check top-1 after each step, plus a capability check: can the backend hand back a state
+receipt after the correction that *detects* the later echo (mnemo's `witness()` — "this answer reflects
+store state as of revision X")?
+
+Measured 2026-07-19 (single-subject minimal fixture — possibility, not frequency; receipt in
+`results/two_writer_coherence.json`): the naive append-only + lexical-recency baseline serves the correction
+but the echo retakes top-1 (the failure mode is real and the test can fail); **mnemo, mem0 (raw adds +
+`update()`), and Chroma (delete+add) all pass both checks on this minimal case — honest parity on the serve
+itself.** Where they differ is the receipt: only mnemo exposes a witness that makes the post-correction echo
+*visible* to a downstream consumer; the others pass silently, which is fine until the day they don't. As
+everywhere in this folder: run it on your own stack, the result is yours.
+
 ## Planned cells (harness shape is the same)
 
 - **conflict-consolidation** — the MemoryAgentBench-style task where every system is weak (best ~54% single-hop);
