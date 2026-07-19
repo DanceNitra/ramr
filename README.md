@@ -48,6 +48,32 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 
 ---
 
+## Cross-system integrity + erasure (run against real stores)
+
+The 9 metrics above are the **synthetic, contamination-resistant** core. The [`integrity/`](integrity/) module
+is the complementary **cross-system, real-store** cut — the same reliability question asked against the memory
+libraries developers actually run, through one shared, ground-truth-blind judge (no home-field instrument):
+
+- **Value-obscuring REVERT** — the user says *"go back to what we had"* naming no value. Can the store undo a
+  correction on that unmarked command? (New here — not one of the 9 synthetic metrics; mem0/Graphiti have no
+  revert operation, so it is a capability gap, not a tuning gap.)
+- **ECHO resurrection** — the synthetic ECHO-RESISTANCE metric above, measured cross-system on native configs.
+- **Erasure self-check** ([`integrity/erasure_selfcheck.py`](integrity/erasure_selfcheck.py)) — a *run-your-own*
+  tool: point it at your installed backend(s); it stores a marker, calls that backend's OWN `delete` + compaction,
+  reads the raw store, and reports logical residue. Makes **no vendor claim** — the result is yours. Honest scope
+  printed every run (logical vs at-rest residue; audit-log-by-design; coordinated disclosure).
+
+```bash
+pip install agora-mnemo
+python integrity/run.py                      # revert + echo, local free Ollama judge
+python integrity/erasure_selfcheck.py        # your stack's erasure receipt
+```
+
+Method, the fairness fix that dropped mnemo's revert headline from a flattering 1.00 to 0.75, and how to add
+your system: [`integrity/METHODOLOGY.md`](integrity/METHODOLOGY.md) · [`integrity/SUBMISSION.md`](integrity/SUBMISSION.md).
+
+---
+
 ## Key findings
 
 _All numbers below are traceable to a persisted result JSON and recomputed by `verify_numbers.py` (see
