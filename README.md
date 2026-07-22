@@ -53,7 +53,10 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 
 The 11 metrics above are the **synthetic, contamination-resistant** core. The [`integrity/`](integrity/) module
 is the complementary **cross-system, real-store** cut — the same reliability question asked against the memory
-libraries developers actually run, through one shared, ground-truth-blind judge (no home-field instrument):
+libraries developers actually run, through one shared, ground-truth-blind judge (no home-field instrument).
+These cross-system results are rendered as a standing, PR-submittable
+**[Agent-Memory Integrity Leaderboard](https://dancenitra.github.io/agora/public/leaderboard/)**
+(add your system via [`integrity/SUBMISSION.md`](integrity/SUBMISSION.md)):
 
 - **Value-obscuring REVERT** — the user says *"go back to what we had"* naming no value. Can the store undo a
   correction on that unmarked command? (New here — not one of the synthetic metrics above; mem0/Graphiti have no
