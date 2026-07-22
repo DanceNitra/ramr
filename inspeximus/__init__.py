@@ -1,7 +1,6 @@
-"""inspeximus — agent memory core (zero-dependency), PINNED SNAPSHOT vendored for reproducibility.
+"""inspeximus — agent memory core (zero-dependency), vendored for reproducibility.
 
-This is a frozen copy (v0.6.10) of the inspeximus library, vendored so the RAMR numbers in this repo
-reproduce against exactly the code that produced them. The maintained library is newer and installable
-with `pip install inspeximus`; this pinned copy is intentionally not updated in lock-step with it.
+This is a vendored copy of the inspeximus library core (v1.29.0), matching the maintained package
+`pip install inspeximus`, so the RAMR numbers in this repo reproduce against exactly this code.
 """
 from .core import Inspeximus  # noqa: F401

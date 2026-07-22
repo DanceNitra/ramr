@@ -27,12 +27,40 @@ trusted from a prose note). Last run: 2026-06-23.
 | OPERATIONAL-CONTINUITY (idempotent resume) | duplicate-rate decay-ON tracks budget-floor (0.70/0.50/0.00 at k=3/5/10) vs decay-OFF 1.00 at every k; n_old=200 | operational_continuity_result.json | 6 seeds |
 | TEMPORAL-AS-OF (bi-temporal, reversed ingest) | now-accuracy 1.00 by valid_from (vs 0.00 by ingest-order); as-of accuracy 1.00 | temporal_asof_result.json | 20 topics x 6 seeds |
 | ABSTENTION @ floor 0.6 | abstention-precision 1.00 + in-store recall 1.00 (vs abstention 0.00 at floor 0) | abstention_result.json | 5 seeds |
-| CROSS-SCOPE LEAKAGE | scoped 0.00 leakage + 1.00 in-scope recall (vs 0.82 leakage with no scope) | scope_leakage_result.json | 5 seeds |
+| CROSS-SCOPE LEAKAGE | scoped 0.00 leakage + 1.00 in-scope recall (vs 0.80 leakage with no scope) | scope_leakage_result.json | 5 seeds |
 | SIGNAL-RELIABILITY break-even | recall-lift crosses 0 at the floor 1/(1+D); cal 'full' gain +0.33 / backfire -0.47; 'boost' +0.00; 'gated' +0.19 | ramr_breakeven_result.json | 3 sets |
 
 | COMPRESSION-LIFT (compiled - raw) | +0.00 / -0.40 / -0.55 at K=5/20/50 distractors (compaction is a COST, not a gain, for a capable reader) | compression_oracle_result.json | N=20 |
 
+| **INTEGRITY-RECALL revert** (acc@1: correct CURRENT value after a revert) | **inspeximus 1.00 CI[1,1] · cosine-recency 0.00 · naive 0.55** | ramr_integrity_recall_result.json | 100 |
+| **INTEGRITY-RECALL poison** (acc@1: a consumer that branches on a legible warrant tier returns the *corroborated* record over an *uncorroborated* one — **NOT injection detection**; see note) | **inspeximus+warrant 1.00 CI[1,1] · plain inspeximus/recency/naive 0.00** | ramr_integrity_recall_result.json | 100 |
+| INTEGRITY-RECALL supersession (acc@1: correct value after an update) | inspeximus 1.00 = cosine-recency 1.00 (a TIE) · naive 0.51 | ramr_integrity_recall_result.json | 100 |
+
 All flagship numbers are internally consistent (each headline equals the mean recomputed from the stored arrays).
+
+### INTEGRITY-CONDITIONED RECALL — honest reading (do not overclaim)
+- **revert is the unique win**: only a system with an explicit revert-by-key returns the restored value; a
+  recency heuristic returns the retracted one (0.00), naive cosine is a coin-flip among candidates (0.55).
+- **poison is a warrant-channel demonstration, NOT injection detection.** Default inspeximus recall scores
+  0.00 like everyone else; the *inspeximus+warrant* 1.00 shows the value of a legible warrant tier GIVEN a
+  trustworthy warrant — at construction the harness credits the truth with an exogenous `warrant="external"`
+  and the poison with none, on distinct keys. It does **not** hold if the attacker can supply the warrant (a
+  warrant string is spoofable, per the core's own docs — the same attacker who can inject can attach it).
+  Baselines have no warrant channel by design. Unmeasured, and each could flip the story: warranted poison,
+  and false-rejection of a legitimate correction that arrives unwarranted. Prior art at this axis: MINJA and
+  AgentPoison (memory-injection attacks); AGM belief revision / truth maintenance (the revert operation).
+- **supersession is a TIE** with a fair recency baseline (both 1.00); the separation only appears once a
+  revert or an injection enters.
+- Scope: synthetic controlled scenarios, n=100/scenario, bootstrap 95% CI, same nomic embeddings for every
+  system; baselines are plain/recency cosine (what most RAG uses), NOT mem0/Zep. Regenerate:
+  `python ramr_integrity_recall.py` (needs a local Ollama serving nomic-embed-text).
+
+### Re-vendor note (v0.4.3)
+The vendored `inspeximus` core was updated from the pinned v0.6.10 snapshot to v1.29.0 (matching
+`pip install inspeximus`). Every inspeximus-using harness was re-run: all verdicts hold, OUTCOME-LIFT is
+unchanged (0.000 drift at every D), and the breakeven cited numbers hold. Two secondary numbers refreshed
+against the newer core: CROSS-SCOPE LEAKAGE baseline 0.82 -> 0.80, and the breakeven 'boost' arm shifted by
+<=0.03 (its cited headline stays +0.00). Surfaced rather than pinned.
 
 ## Previously UNBACKED — now RESOLVED (2026-06-23)
 - **FACT-RETENTION cross-model hard-budget table** is now VERIFIED (rows above). Fix applied: `ramr_factret.py`

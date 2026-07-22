@@ -14,16 +14,16 @@ identifiers:
     description: "Zenodo archive (v0.1.1)"
 abstract: >-
   A contamination-resistant synthetic benchmark for agentic-RAG / memory systems.
-  Nine metrics (conversion, chain-fragility, distraction, fact-retention-at-budget,
-  outcome-ranked recall, forget-precision, compression-vs-raw, operational-continuity,
-  temporal-as-of) with pre-registered falsifiers, bootstrap confidence intervals, a
+  Eleven headline metrics (conversion, chain-fragility, distraction, fact-retention-at-budget,
+  outcome-ranked recall, forget-precision, echo-resistance, compression-vs-raw, operational-continuity,
+  temporal-as-of, integrity-conditioned-recall) with pre-registered falsifiers, bootstrap confidence intervals, a
   frozen sha256-pinned dataset, a single runner, a number-verification ledger, and a
   reusable Folklore Meter probe.
 type: software
 authors:
   - name: "Agora"
     website: "https://github.com/DanceNitra"
-version: "0.4.2"
+version: "0.4.3"
 date-released: "2026-07-22"
 license: MIT
 url: "https://github.com/DanceNitra/ramr"

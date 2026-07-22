@@ -31,7 +31,7 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 
 ---
 
-## What it measures (9 metrics)
+## What it measures (11 metrics)
 
 | Metric | Question | How |
 |---|---|---|
@@ -45,17 +45,18 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 | **COMPRESSION-vs-RAW** | Does a compiled summary beat the raw (noisy) context, or only lose to it? | acc(compiled) − acc(raw), swept over distractor load |
 | **OPERATIONAL-CONTINUITY** | On resume after compaction, does the agent re-execute an already-completed action (a duplicate side-effect)? | duplicate-rate of a budget-limited resume recall, with vs without recency, against accumulated history |
 | **TEMPORAL-AS-OF** | When a stale fact arrives LATER than the current one (out-of-order ingest), does supersession resolve by validity-time, not ingest-order? | recall-now accuracy under reversed ingest + recall(as_of=T) returns the value valid at T |
+| **INTEGRITY-CONDITIONED RECALL** | After a supersession / revert / poison, does recall return the CORRECT CURRENT value, where a plain cosine store returns the stale or injected one? | acc@1 for naive-cosine, cosine-recency, and inspeximus (± warrant gate), over randomized trials with CIs |
 
 ---
 
 ## Cross-system integrity + erasure (run against real stores)
 
-The 9 metrics above are the **synthetic, contamination-resistant** core. The [`integrity/`](integrity/) module
+The 11 metrics above are the **synthetic, contamination-resistant** core. The [`integrity/`](integrity/) module
 is the complementary **cross-system, real-store** cut — the same reliability question asked against the memory
 libraries developers actually run, through one shared, ground-truth-blind judge (no home-field instrument):
 
 - **Value-obscuring REVERT** — the user says *"go back to what we had"* naming no value. Can the store undo a
-  correction on that unmarked command? (New here — not one of the 9 synthetic metrics; mem0/Graphiti have no
+  correction on that unmarked command? (New here — not one of the synthetic metrics above; mem0/Graphiti have no
   revert operation, so it is a capability gap, not a tuning gap.)
 - **ECHO resurrection** — the synthetic ECHO-RESISTANCE metric above, measured cross-system on native configs.
 - **Erasure self-check** ([`integrity/erasure_selfcheck.py`](integrity/erasure_selfcheck.py)) — a *run-your-own*
@@ -204,6 +205,22 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.4.3** — **INTEGRITY-CONDITIONED RECALL** metric (`ramr_integrity_recall.py`): after a supersession /
+  revert / poison, does recall return the correct current value? On this constructed scenario, `revert` is
+  the unique win (inspeximus 1.00 vs cosine-recency 0.00, naive 0.55 — recency has no revert operation);
+  `supersession` ties a fair recency baseline (both 1.00). The `poison` row (inspeximus+warrant 1.00 vs
+  everyone-else 0.00) is a **warrant-channel demonstration, not injection detection** — it lets a consumer
+  branch on an externally-assigned trust label; it does not detect the injection and does not hold if the
+  attacker can supply the warrant (spoofable, per the core's docs). Warranted-poison and false-rejection of
+  unwarranted legitimate corrections are unmeasured. Prior art: MINJA / AgentPoison, AGM belief revision. n=100/scenario, bootstrap CIs, raw
+  per-trial arrays persisted so `verify_numbers.py` recomputes each acc@1. Also **re-vendored the `inspeximus`
+  core to v1.29.0** (matching `pip install inspeximus`, replacing the pinned v0.6.10 snapshot): every
+  inspeximus-using harness was re-run — all verdicts hold and OUTCOME-LIFT is unchanged; two secondary numbers
+  refreshed against the newer core (CROSS-SCOPE-LEAKAGE baseline 0.82→0.80; breakeven 'boost' arm ≤0.03, its
+  cited headline stays +0.00).
+- **v0.4.2** — renamed the vendored memory library to `inspeximus` throughout (module, class, and every
+  reference), aligning the repo with the maintained package name. Rename-only: every number reproduces
+  against the unchanged vendored code.
 - **v0.4.1** — Folklore Meter fix: `ask_clean`/`run_claim` now honour a claim's custom **`extractor`** (it was read but ignored — `extract_int` was hardcoded), so the meter works for string / abstention / multiple-choice claims, not just integer answers. Unit-tested with a string extractor.
 - **v0.4.0** — **Folklore Meter** (`ramr_folklore_meter.py`): a reusable tool that asks, of any AI-engineering
   "folklore" mechanism, *does it actually help or is it a weak-model crutch?* It measures a claim the
