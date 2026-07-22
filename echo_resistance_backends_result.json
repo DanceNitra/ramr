@@ -1,10 +1,10 @@
 {
-  "mnemo (echo_guard=off)": {
+  "inspeximus (echo_guard=off)": {
     "forget_precision": 1.0,
     "echo_resistance": 0.0,
     "note": "store-deterministic (judge-independent)"
   },
-  "mnemo (echo_guard=on)": {
+  "inspeximus (echo_guard=on)": {
     "forget_precision": 1.0,
     "echo_resistance": 1.0,
     "note": "store-deterministic (judge-independent)"

@@ -13,18 +13,18 @@ OFF (current also 30d -> no recency advantage).
 Pre-registered: with recency, DUPLICATE-RATE = the budget-floor max(0, C-k)/C (robust to unlimited old history);
 without recency, old completions crowd out current ones -> DUPLICATE-RATE stays ~1.0 at any budget. NO-MEMORY
 baseline = 1.0. Falsifier: decay ON does NOT track the budget-floor, or decay OFF is materially below 1.0.
-CLOUD-FREE, pure mnemo recall (no LLM, no embedder). Deterministic (seeded).
+CLOUD-FREE, pure inspeximus recall (no LLM, no embedder). Deterministic (seeded).
 """
 import os, sys, json, time, random
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo.mnemo import Mnemo
+from inspeximus.core import Inspeximus
 
 DAY = 86400.0
 _CV, _V = "bcdfghjklmnpqrstvwz", "aeiou"
 
 def _trial(budget_k, decay_on, n_current=10, n_old=200, seed=0):
     rng = random.Random(seed)
-    s = Mnemo(path=None, embed=None); s.semantic_threshold = 10 ** 9
+    s = Inspeximus(path=None, embed=None); s.semantic_threshold = 10 ** 9
     now = time.time(); pool = set()
     def uniq():
         while True:

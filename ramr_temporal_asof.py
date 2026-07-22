@@ -11,11 +11,11 @@ valid_from) so INGEST order is REVERSED vs VALIDITY order, runs consolidate(), a
   - AS-OF accuracy: does recall(as_of=T) return the value that was valid at an intermediate T?
 Baseline contrast: the old ingest-order rule would keep the later-ts (=STALE) record, scoring ~0 on NOW.
 Pre-registered falsifier: if NOW accuracy is not ~1.0 under reversed ingest, validity-time supersession is not
-working; if AS-OF != the historical value, the as-of query is wrong. CLOUD-FREE, pure mnemo recall, deterministic.
+working; if AS-OF != the historical value, the as-of query is wrong. CLOUD-FREE, pure inspeximus recall, deterministic.
 """
 import os, sys, json, random
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo.mnemo import Mnemo
+from inspeximus.core import Inspeximus
 
 def _topics(n, seed):
     rng = random.Random(seed); L = "abcdefghijklmnopqrstuvwxyz"; out = []
@@ -31,7 +31,7 @@ def run(n=20, seeds=6, t_old=100.0, t_cur=200.0, t_mid=150.0):
     now_hits = asof_hits = ingest_rule_now_hits = total = 0
     for s in range(seeds):
         tps = _topics(n, 1000 + s)
-        m = Mnemo(path=None, embed=None); m.semantic_threshold = 10 ** 9
+        m = Inspeximus(path=None, embed=None); m.semantic_threshold = 10 ** 9
         ids = {}
         for j, tp in enumerate(tps):
             i_cur = m.remember(tp["cur"], value=2.0, mtype="semantic", valid_from=t_cur)   # current, ingested FIRST
@@ -58,7 +58,7 @@ def run(n=20, seeds=6, t_old=100.0, t_cur=200.0, t_mid=150.0):
 
 if __name__ == "__main__":
     res = run()
-    print("TEMPORAL-AS-OF: reversed-ingest (stale fact arrives later than current). pure mnemo, deterministic.")
+    print("TEMPORAL-AS-OF: reversed-ingest (stale fact arrives later than current). pure inspeximus, deterministic.")
     print(f"  NOW accuracy (bi-temporal, valid_from rule)  : {res['now_accuracy_bitemporal']:.3f}  (want ~1.00)")
     print(f"  AS-OF accuracy (recall(as_of=mid) -> stale)  : {res['asof_accuracy']:.3f}  (want ~1.00)")
     print(f"  NOW accuracy (old INGEST-order rule baseline): {res['now_accuracy_ingest_rule']:.3f}  (serves STALE by construction)")

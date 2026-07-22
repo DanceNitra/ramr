@@ -24,11 +24,11 @@ Honest scope (read before drawing conclusions):
   * A raw vector/list store has no correction primitive; we emulate correction as delete+add — failing
     echo_resistance there is a statement about that COMPOSITION, not a bug in the store.
   * Retrieval quality depends on the embedder; backends that need one use MiniLM on CPU, deterministically.
-    The mnemo and naive rows are zero-dependency lexical.
+    The inspeximus and naive rows are zero-dependency lexical.
   * The result is YOURS: run it against the stack you actually operate. No claim is made about any vendor.
 
 Usage:  python two_writer_coherence.py             # auto-detect installed backends
-        python two_writer_coherence.py mnemo naive # or name them
+        python two_writer_coherence.py inspeximus naive # or name them
 """
 import json
 import os
@@ -54,11 +54,11 @@ def _emb():
 CHECKS = {}   # name -> callable() -> dict row
 
 
-def check_mnemo():
-    """mnemo: keyed supersession + echo_guard; witness() is the state receipt."""
-    from mnemo import Mnemo
+def check_inspeximus():
+    """inspeximus: keyed supersession + echo_guard; witness() is the state receipt."""
+    from inspeximus import Inspeximus
     d = tempfile.mkdtemp()
-    m = Mnemo(path=os.path.join(d, "s.json"))
+    m = Inspeximus(path=os.path.join(d, "s.json"))
     m.echo_guard = True
     top = lambda: (m.recall(QUERY, k=1) or [{}])[0].get("text", "")
     m.remember(V1, key="staging-db-host")                      # 1. writer A stores V1
@@ -70,7 +70,7 @@ def check_mnemo():
     witness_detects = not m.verify_witness(w)["digest_match"]
     return {"serve_correction": serve, "echo_resistance": echo,
             "witness": "supported", "witness_detects_echo": witness_detects}
-CHECKS["mnemo"] = check_mnemo
+CHECKS["inspeximus"] = check_inspeximus
 
 
 def check_naive():

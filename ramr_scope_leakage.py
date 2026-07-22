@@ -1,5 +1,5 @@
-"""RAMR CROSS-SCOPE LEAKAGE metric (validates mnemo's new recall(scope=) isolation). A shared memory store (many
-agents/tenants in one Mnemo -- exactly Agora's 8-agent dungeon) must not bleed one scope's memories into another's
+"""RAMR CROSS-SCOPE LEAKAGE metric (validates inspeximus's new recall(scope=) isolation). A shared memory store (many
+agents/tenants in one Inspeximus -- exactly Agora's 8-agent dungeon) must not bleed one scope's memories into another's
 recall. Setup: M topics; for each, store an A-scoped fact and a B-scoped fact that share the SAME entity+attribute
 tokens (same schema, different tenant) but different values. Query as tenant B:
   no-scope   : recall(q)            -> leakage if the returned top-1 is an A-scoped fact
@@ -9,7 +9,7 @@ filter doesn't work. Cloud-free, lexical. ASCII."""
 import os, sys, json
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo import Mnemo
+from inspeximus import Inspeximus
 
 M = int(os.getenv("SCOPE_M", "40"))
 N_SEEDS = int(os.getenv("SCOPE_SEEDS", "5"))
@@ -18,7 +18,7 @@ L = "abcdefghijklmnopqrstuvwxyz"
 
 
 def build(seed):
-    store = Mnemo(path=None, embed=None); store.semantic_threshold = 10 ** 9
+    store = Inspeximus(path=None, embed=None); store.semantic_threshold = 10 ** 9
     A_ids, B_ids, probes = set(), set(), []
     for i in range(M):
         sfx = L[i // 26] + L[i % 26]; attr = ATTRS[i % len(ATTRS)]

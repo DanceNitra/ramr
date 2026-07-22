@@ -1,7 +1,7 @@
 """RAMR ECHO-RESISTANCE (cross-backend, ANSWER-LEVEL) -- the fair comparison across real memory systems.
 
 ramr_echo_resistance.py scores echo-resistance at RETRIEVAL top-1 (cloud-free, lexical) -- fair for a
-supersession store (mnemo) whose design is to REMOVE the stale value, but UNFAIR to an add-based store
+supersession store (inspeximus) whose design is to REMOVE the stale value, but UNFAIR to an add-based store
 (mem0) whose design keeps both values and reconciles at READ time (top-k handed to an answering LLM). So a
 top-1 retrieval metric is a strawman for mem0 (like scoring a bi-temporal graph on a config it never uses).
 
@@ -11,7 +11,7 @@ value, and check it is `new`. Sequence per topic:
   1. assert "ENT region is OLD"; 2. "correction: ENT region is NEW"; (forget-precision: answer == NEW?)
   3. echo: re-state the OLD value (value-preserving); (echo-resistance: answer STILL == NEW?)
 
-Backends: mnemo (echo_guard off / on) always; mem0 if installed (`pip install mem0ai chromadb`). Add your
+Backends: inspeximus (echo_guard off / on) always; mem0 if installed (`pip install mem0ai chromadb`). Add your
 own backend with a 3-method adapter (reset / store / recall_texts). Value-preserving echoes only (a
 value-obscuring "go back to the old one" is out of scope for any object-level defense).
 
@@ -22,7 +22,7 @@ RUN: OPENAI_API_KEY=... OPENAI_BASE_URL=... JUDGE_MODEL=... python ramr_echo_res
 """
 import os, sys, json, tempfile, time, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo import Mnemo
+from inspeximus import Inspeximus
 
 N = int(os.getenv("ER_N", "30"))
 BASE = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
@@ -61,11 +61,11 @@ def judge(ent, mems, old, new):
 
 
 # ---------- backend adapters (reset / store / recall_texts) ----------
-class MnemoBackend:
-    def __init__(self, guard): self.guard = guard; self.name = f"mnemo (echo_guard={'on' if guard else 'off'})"
+class InspeximusBackend:
+    def __init__(self, guard): self.guard = guard; self.name = f"inspeximus (echo_guard={'on' if guard else 'off'})"
     def reset(self):
         fd, p = tempfile.mkstemp(suffix=".json"); os.close(fd); os.remove(p)
-        self.m = Mnemo(path=p); self.m.echo_guard = self.guard
+        self.m = Inspeximus(path=p); self.m.echo_guard = self.guard
     def store(self, text, key, object, value=1.0): self.m.remember(text, key=key, object=object, value=value)
     def recall_texts(self, query): return [r["text"] for r in self.m.recall(query, k=5, mode="lexical")]
 
@@ -108,7 +108,7 @@ def score(be, kind="reworded"):
 def main():
     if not KEY:
         print("Set OPENAI_API_KEY (+ OPENAI_BASE_URL / JUDGE_MODEL for a non-OpenAI endpoint)."); return
-    backends = [MnemoBackend(False), MnemoBackend(True)]
+    backends = [InspeximusBackend(False), InspeximusBackend(True)]
     try:
         backends.append(Mem0Backend())
     except Exception as e:

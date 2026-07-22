@@ -11,7 +11,7 @@ so the post-correction restatement rate is unmeasured.
 We test two regimes of echo, both keeping the OLD VALUE (a value-preserving restatement, verbatim or reworded):
   VERBATIM  : the exact original old-value sentence is re-stated.
   REWORDED  : the old value is re-asserted in different words (same value token).
-Arms (mnemo keyed supersession, object = the value token):
+Arms (inspeximus keyed supersession, object = the value token):
   NO-GUARD  : echo_guard off -- keyed supersession is validity-recency, so the later echo supersedes the
               correction and the STALE value becomes current again.
   GUARD     : echo_guard on  -- a superseded-object ledger refuses to let an already-retired value be
@@ -26,7 +26,7 @@ and the guard must NOT hurt FORGET-PRECISION (the correction itself still sticks
 """
 import os, sys, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo import Mnemo
+from inspeximus import Inspeximus
 
 M_TOPICS = int(os.getenv("ER_M", "30"))
 ENTS = ["payment api", "auth service", "search index", "billing job", "cache layer", "upload queue",
@@ -65,7 +65,7 @@ def run(guard, echo_kind):
     def fresh():
         import tempfile
         fd, p = tempfile.mkstemp(suffix=".json"); os.close(fd); os.remove(p)
-        m = Mnemo(path=p); m.echo_guard = guard; return m
+        m = Inspeximus(path=p); m.echo_guard = guard; return m
     persist_ok, echo_ok = 0, 0
     for i in range(M_TOPICS):
         ent, ov, nv = ENTS[i % len(ENTS)], OLD[i % len(OLD)], NEW[i % len(NEW)]

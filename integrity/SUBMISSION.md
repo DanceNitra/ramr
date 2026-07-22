@@ -5,7 +5,7 @@ Four methods, one PR. FAILED cells are welcome — a store with no revert channe
 ## 1. Write an adapter
 
 Add a class to `run.py` (or import it there) implementing the `MemoryAdapter` interface. Each case gets a
-fresh, isolated store via `reset()`. Reference implementation (`MnemoAdapter`, ~15 lines):
+fresh, isolated store via `reset()`. Reference implementation (`InspeximusAdapter`, ~15 lines):
 
 ```python
 class MyStoreAdapter(MemoryAdapter):
@@ -31,7 +31,7 @@ class MyStoreAdapter(MemoryAdapter):
 Register it:
 
 ```python
-ADAPTERS = {"mnemo": MnemoAdapter, "mystore": MyStoreAdapter}
+ADAPTERS = {"inspeximus": InspeximusAdapter, "mystore": MyStoreAdapter}
 ```
 
 ## 2. Run both cells

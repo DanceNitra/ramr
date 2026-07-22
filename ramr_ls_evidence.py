@@ -1,7 +1,7 @@
 """RAMR reliability-layer reference for the RAMR<->LS interop (anthropics/claude-code#34556).
 
 RAMR owns retrieval measurement; LS owns the deterministic continuation verdict. This module is the small retrieval
-harness safal207/LS pins against: it emits the `ramr-ls-evidence-v0.1` envelope from a mnemo store as a THIN
+harness safal207/LS pins against: it emits the `ramr-ls-evidence-v0.1` envelope from an inspeximus store as a THIN
 PROJECTION of fields the engine already carries —
     valid_from / invalidated_at  <- bi-temporal validity
     provenance                   <- source-span origin
@@ -15,7 +15,7 @@ MEASURES whether the completion record was recovered. CLOUD-FREE (lexical recall
 """
 import os, sys, json, time, hashlib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo.mnemo import Mnemo
+from inspeximus.core import Inspeximus
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 FIXTURE = os.path.join(BASE, "fixtures", "ramr_ls", "duplicate_successful_outcome.json")
@@ -59,8 +59,8 @@ def recovered_side_effect(envelope, target_side_effect_key, query_context):
     return False
 
 def _store_for_case(fx, recovered):
-    """Build a mnemo store that reproduces a fixture case: the completion record is recoverable (recovered) or not."""
-    s = Mnemo(path=None, embed=None); s.semantic_threshold = 10 ** 9
+    """Build an inspeximus store that reproduces a fixture case: the completion record is recoverable (recovered) or not."""
+    s = Inspeximus(path=None, embed=None); s.semantic_threshold = 10 ** 9
     led = fx["authoritative_state"]["completion_ledger"][0]
     if recovered:
         mid = s.remember(
@@ -94,5 +94,5 @@ if __name__ == "__main__":
         ok &= (got == exp)
         print(f"  {case['case']:>26}: RAMR recovered_side_effect={got} (expected {exp}) "
               f"reliability_signal={env['retrieval']['reliability_signal']}  | LS verdict (per fixture): {case['expected']['ls_verdict']}")
-    print(f"\nVERDICT: {'PASS' if ok else 'FAIL'} — RAMR emits ramr-ls-evidence-v0.1 from native mnemo fields and "
+    print(f"\nVERDICT: {'PASS' if ok else 'FAIL'} — RAMR emits ramr-ls-evidence-v0.1 from native inspeximus fields and "
           f"scores recovered_side_effect to match the fixture. Boundary invariant: {fx['_meta']['boundary_invariant']}")

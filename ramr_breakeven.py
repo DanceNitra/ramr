@@ -1,4 +1,4 @@
-"""RAMR break-even sweep + the test that decides which mnemo cal_mode ships. Our signal-reliability law says the
+"""RAMR break-even sweep + the test that decides which inspeximus cal_mode ships. Our signal-reliability law says the
 outcome-credit (was-it-right) channel only beats relevance once the credit signal's reliability p exceeds the
 no-signal floor 1/(1+D). The legacy cal (mode 'full', [0.5,1.5]) BACKFIRES below that floor (a wrong credit
 durably suppresses a correct memory). We test two safer modes against it:
@@ -12,7 +12,7 @@ lift >= ~0 across ALL p (no backfire) and (b) preserve a positive lift where p >
 import os, sys, json
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo import Mnemo
+from inspeximus import Inspeximus
 
 M = int(os.getenv("BE_M", "24"))
 T = int(os.getenv("BE_T", "8"))
@@ -38,7 +38,7 @@ def topics(seed, D):
 def run(mode, p, D, seed):
     rr = np.random.default_rng(seed * 1000 + int(p * 100) + D)
     tps = topics(seed, D)
-    store = Mnemo(path=None, embed=None); store.semantic_threshold = 10 ** 9
+    store = Inspeximus(path=None, embed=None); store.semantic_threshold = 10 ** 9
     store.cal_mode = "full" if mode == "none" else mode    # baseline uses 'full' but never credits
     correct = []
     for tp in tps:

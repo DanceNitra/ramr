@@ -6,7 +6,7 @@ the correction on an unmarked command (value-obscuring REVERT), and does restati
 back (ECHO resurrection)? Both are read through ONE shared, ground-truth-blind judge on each system's own
 recall surface, so no system is scored on a home-field instrument.
 
-Add your system by writing a MemoryAdapter (≈15 lines, see MnemoAdapter below) and open a PR with the result.
+Add your system by writing a MemoryAdapter (≈15 lines, see InspeximusAdapter below) and open a PR with the result.
 
 JUDGE: any OpenAI-compatible chat endpoint, configured by env vars (defaults to a local Ollama, so it runs
 free with no API key):
@@ -15,9 +15,9 @@ free with no API key):
     JUDGE_API_KEY    default ""                               (required for OpenAI)
 
 RUN:
-    pip install agora-mnemo
-    python run.py                        # mnemo, both cells, local-Ollama judge
-    python run.py --systems mnemo --cell revert
+    pip install inspeximus
+    python run.py                        # inspeximus, both cells, local-Ollama judge
+    python run.py --systems inspeximus --cell revert
 """
 import os, sys, json, time, argparse, urllib.request
 
@@ -86,23 +86,23 @@ class MemoryAdapter:
     def context(self, entity): ...       # return the retrieved-memory text the judge should read
 
 
-class MnemoAdapter(MemoryAdapter):
-    name = "mnemo"
+class InspeximusAdapter(MemoryAdapter):
+    name = "inspeximus"
     def __init__(self):
-        from mnemo import Mnemo
-        self._Mnemo = Mnemo
+        from inspeximus import Inspeximus
+        self._Inspeximus = Inspeximus
     def reset(self):
-        self.m = self._Mnemo(path=None); self.m.echo_guard = True; self._key = None
+        self.m = self._Inspeximus(path=None); self.m.echo_guard = True; self._key = None
     def add(self, text, key=None, object=None):
         self.m.remember(text, key=key, object=object)
     def command(self, text):
-        # mnemo has an intent router: it tags assert/correct/revert/echo and routes to the right channel
+        # inspeximus has an intent router: it tags assert/correct/revert/echo and routes to the right channel
         self.m.route(text, policy="safe")
     def context(self, entity):
         return "\n".join(h["text"] for h in self.m.recall(entity, k=6)) or "(no memories)"
 
 
-ADAPTERS = {"mnemo": MnemoAdapter}
+ADAPTERS = {"inspeximus": InspeximusAdapter}
 
 
 def cell_revert(ad, cfg, n):
@@ -110,7 +110,7 @@ def cell_revert(ad, cfg, n):
     for i in range(min(n, len(ENTS))):
         e, A, B = ENTS[i]; rev = REVERTS[i % len(REVERTS)].format(e=e)
         ad.reset()
-        # mnemo can carry key/object; other adapters just get the text
+        # inspeximus can carry key/object; other adapters just get the text
         try:
             ad.add(f"the {e} is {A}", key=e, object=A); ad.add(f"correction: the {e} is now {B}", key=e, object=B)
         except TypeError:
@@ -149,7 +149,7 @@ def score(verds, success_letter):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--systems", default="mnemo")
+    ap.add_argument("--systems", default="inspeximus")
     ap.add_argument("--cell", default="both", choices=["revert", "echo", "both"])
     ap.add_argument("--n", type=int, default=20)
     a = ap.parse_args()
@@ -158,7 +158,7 @@ def main():
     out = {"judge": cfg["model"], "n": a.n, "results": {}}
     for sysname in [s.strip() for s in a.systems.split(",") if s.strip()]:
         if sysname not in ADAPTERS:
-            print(f"  no adapter for '{sysname}' — write one (see MnemoAdapter) and PR it."); continue
+            print(f"  no adapter for '{sysname}' — write one (see InspeximusAdapter) and PR it."); continue
         ad = ADAPTERS[sysname]()
         cells = ["revert", "echo"] if a.cell == "both" else [a.cell]
         for cell in cells:

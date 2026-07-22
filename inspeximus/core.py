@@ -1,5 +1,5 @@
 """
-mnemo — a memory layer for AI agents.  (brand: Mnemosyne)
+inspeximus — a memory layer for AI agents.  (brand: Inspeximus)
 
 The memory that runs an autonomous research OS over ~5,800 notes, distilled to a single file with
 no required dependencies. It does the four things agent memory actually needs, the way that held up
@@ -25,11 +25,11 @@ Design rules that are not optional (each one cost us to learn):
     is statistical noise; cohorts are where the signal lives.
   • Contradictions are flagged for review, not auto-resolved. Silent rewrites destroy trust.
 
-Bring your own embedder for semantic recall (any text->vector fn); with none, mnemo falls back to a
+Bring your own embedder for semantic recall (any text->vector fn); with none, inspeximus falls back to a
 lexical token overlap so it runs anywhere, today.
 
-    from mnemo import Mnemo
-    m = Mnemo("memory.json")                 # or Mnemo("memory.json", embed=my_embedder)
+    from inspeximus import Inspeximus
+    m = Inspeximus("memory.json")                 # or Inspeximus("memory.json", embed=my_embedder)
     m.remember("Pre-trend tests catch only ~31% of fatal DiD bias.", tags=["causal"], value=3)
     m.recall("difference in differences", k=5)
     m.consolidate(keep=200)
@@ -49,7 +49,7 @@ import uuid
 from pathlib import Path
 
 try:                                  # OPTIONAL: numpy only ACCELERATES semantic recall at scale.
-    import numpy as _np               # mnemo still runs (pure-Python cosine) with no numpy installed.
+    import numpy as _np               # inspeximus still runs (pure-Python cosine) with no numpy installed.
 except Exception:
     _np = None
 
@@ -73,7 +73,7 @@ def _sha256_hex(b: bytes) -> str:
 
 
 def new_receipt_keypair():
-    """Return (private_key_hex, public_key_hex) for signing mnemo write receipts. Needs `cryptography`."""
+    """Return (private_key_hex, public_key_hex) for signing inspeximus write receipts. Needs `cryptography`."""
     if not _HAVE_ED:
         raise RuntimeError("signing write receipts needs the `cryptography` package (pip install cryptography)")
     sk = _Ed25519SK.generate()
@@ -93,7 +93,7 @@ def new_source_keypair():
 def _attest_message(text: str, source_doc) -> bytes:
     """Canonical message an attestation signs: the claim text bound to its canonical source, so a signature
     for 'X by source S' cannot be replayed as 'X by source T' or attached to a different claim."""
-    canon_src = Mnemo._canon_source(source_doc) if source_doc else ""
+    canon_src = Inspeximus._canon_source(source_doc) if source_doc else ""
     return _canon({"t": text, "s": canon_src})
 
 
@@ -142,7 +142,7 @@ def _cosine(a, b) -> float:
     return dot / (na * nb)
 
 
-class Mnemo:
+class Inspeximus:
     def __init__(self, path: str | None = None, embed=None, receipts: bool = False,
                  receipt_key: str | None = None, receipt_pubkey: str | None = None):
         """path: optional JSON file to persist to. embed: optional fn(str)->list[float] for semantic
@@ -178,11 +178,11 @@ class Mnemo:
         # of the budget by RAW value (recency-immune) and fill the REST by EFFECTIVE (decay-weighted)
         # value — so a freshly-useful memory isn't evicted by a stale high-value one. A pure top-N-by-raw
         # prune keeps old high-value items forever and starves a drifting working set. MEASURED on a
-        # simulation of mnemo's own value-accrual + per-type decay: locality served-hit 0.22 -> 0.78,
+        # simulation of inspeximus's own value-accrual + per-type decay: locality served-hit 0.22 -> 0.78,
         # neutral on rare-critical + poison-flood. Reversible: two_tier_keep=False -> legacy top-N-by-raw.
         self.two_tier_keep = True
         self.protect_frac = 0.30
-        # Fast-novelty channel guard (OPT-IN, default OFF). mnemo's state-toggle supersedes a standing
+        # Fast-novelty channel guard (OPT-IN, default OFF). inspeximus's state-toggle supersedes a standing
         # fact the moment a single similar+contradicting memory arrives — correct + fast for a TRUSTED
         # single source (configs/preferences: latest assertion wins), but a single-shot poison flip
         # (AgentPoison / MINJA) can then override a true fact. With this ON, a contradiction supersedes
@@ -201,7 +201,7 @@ class Mnemo:
         # d* made explicit — set it to your stream's corruption-vs-change ratio. Unlike
         # supersede_requires_corroboration this needs NO external credit(): it adopts a genuine change purely
         # from repeated independent assertions, where the corroboration guard would lag one forever. MEASURED
-        # (lab fea933, mnemo's real consolidate() path): isolated-poison false-supersede 1 -> 0 while a
+        # (lab fea933, inspeximus's real consolidate() path): isolated-poison false-supersede 1 -> 0 while a
         # 3-record sustained change is still adopted; it Pareto-dominates both the naive (poison-fooled) and
         # corroboration-only (change-lagging) rules — see the adaptation-corruption coupling (a classical
         # quickest-change-detection tradeoff; lab f490d8).
@@ -213,7 +213,7 @@ class Mnemo:
         # otherwise retire the FRESH value and resurrect the stale one. With this ON, an incoming keyed write
         # whose OBJECT (remember(..., object=...), else the normalized text) matches a value ALREADY
         # superseded for that key is a restatement-of-superseded: it is retired stale-on-arrival and the
-        # current value is preserved. MEASURED (mnemo/probes/echo_attack_probe_v2.py) on a MemBench echo
+        # current value is preserved. MEASURED (inspeximus/probes/echo_attack_probe_v2.py) on a MemBench echo
         # fixture: recency / mem0-v1 / bi-temporal-Graphiti-faithful all resurrect the stale value (stale
         # rate 0.21 -> 1.00 under both verbatim and paraphrased echo), and a verbatim-hash policy (MemStrata)
         # holds against verbatim (0.21) but is destroyed by paraphrase (1.00); the superseded-OBJECT ledger
@@ -346,7 +346,7 @@ class Mnemo:
                 if p is None:
                     continue
                 links.append(pid)
-                taint |= Mnemo._rec_sources(p)     # parent's own source + its inherited taint (transitive)
+                taint |= Inspeximus._rec_sources(p)     # parent's own source + its inherited taint (transitive)
             if taint:
                 rec["taint"] = sorted(taint)
             if links:
@@ -383,7 +383,7 @@ class Mnemo:
         if object is not None:
             rec["object"] = str(object)
         # ORIGIN ATTESTATION (OPT-IN): bind this claim to a source's VERIFIED KEY. attestation is
-        # (pubkey_hex, sig_hex) or {"pubkey":..., "sig":...}; the signature (from mnemo.attest(text, sk,
+        # (pubkey_hex, sig_hex) or {"pubkey":..., "sig":...}; the signature (from inspeximus.attest(text, sk,
         # source_doc)) must verify over the same claim+canonical-source message, else the write is REJECTED
         # (a forged attestation is loud, not silently dropped). On success the record carries attested_key,
         # which strict_corroboration counts distinct instances of — so manufactured independence costs a real
@@ -429,7 +429,7 @@ class Mnemo:
         return {"id": rec["id"],
                 "content_sha256": _sha256_hex(_canon({"text": rec.get("text"), "key": rec.get("key"),
                                                       "mtype": rec.get("mtype")})),
-                "attrib_sha256": _sha256_hex(_canon(sorted(Mnemo._rec_sources(rec))))}
+                "attrib_sha256": _sha256_hex(_canon(sorted(Inspeximus._rec_sources(rec))))}
 
     def _emit_write_receipt(self, rec: dict) -> dict:
         prev = self._receipts[-1]["hash"] if self._receipts else _GENESIS
@@ -538,7 +538,7 @@ class Mnemo:
                 continue
             elif a is None:
                 uncommitted.append(mid)
-            elif _sha256_hex(_canon(sorted(Mnemo._rec_sources(cur)))) != a:
+            elif _sha256_hex(_canon(sorted(Inspeximus._rec_sources(cur)))) != a:
                 relabeled.append(mid)
         return {"ok": chain_ok and not relabeled, "chain_ok": chain_ok,
                 "relabeled": relabeled, "uncommitted": uncommitted, "missing": missing}
@@ -615,7 +615,7 @@ class Mnemo:
         return self.remember(text, tags=tags, value=value, meta=meta, mtype=mtype)
 
     def forget(self, ids=None, where=None, redact_links: bool = True) -> dict:
-        """HARD-DELETE memories — the one operation that genuinely REMOVES content. mnemo is otherwise
+        """HARD-DELETE memories — the one operation that genuinely REMOVES content. inspeximus is otherwise
         append-only: supersession / invalidation only DEMOTE a record (it still exists, recallable with
         include_superseded). forget() is for the cases where demotion is not enough: a right-to-be-forgotten
         / erasure request, a poisoned or libellous memory, or a hard correction.
@@ -712,7 +712,7 @@ class Mnemo:
         """Okapi BM25 score of `query` (token set) against every record in `pool` — the strong lexical
         channel for the hybrid. df/avgdl are computed over the pool (the live corpus). Returns a list of
         scores aligned to `pool`. Pure-Python, zero-dependency. We MEASURED BM25 (not token-overlap) as the
-        lexical channel that makes the hybrid beat either alone (mnemo/probes/locomo_retrieval_map.py)."""
+        lexical channel that makes the hybrid beat either alone (inspeximus/probes/locomo_retrieval_map.py)."""
         N = len(pool)
         if N == 0:
             return []
@@ -757,13 +757,13 @@ class Mnemo:
         mode: 'auto' (default) uses LEXICAL token overlap while the store is small (< semantic_threshold
         active memories) and a LEXICAL+SEMANTIC HYBRID (Reciprocal Rank Fusion) once it grows past that —
         the hybrid robustly beat either channel alone in our agent-memory benchmark (details in the recall
-        body / mnemo/probes/locomo_retrieval_map.py). Force a single channel with mode='lexical' /
+        body / inspeximus/probes/locomo_retrieval_map.py). Force a single channel with mode='lexical' /
         'semantic', or the fusion explicitly with mode='hybrid'. Semantic/hybrid need an embedder (set on
         the store); without one, or if embedding fails, recall falls back to lexical automatically.
 
         where: an OPT-IN metadata pre-filter applied to the candidate pool BEFORE ranking — the cheap
         'filter before you rank' lever (measured on LoCoMo: a metadata pre-filter can beat retriever choice;
-        mnemo/probes/locomo_metadata_prefilter.py). A dict of field -> condition; a record must match ALL
+        inspeximus/probes/locomo_metadata_prefilter.py). A dict of field -> condition; a record must match ALL
         fields (AND). Each field is matched against the record's top-level attributes first, then its meta
         dict, so both `valid_from`/`mtype`/`key` and any `meta` key work. A condition is either a scalar
         (equality), a list/tuple/set (membership), or a dict of operators:
@@ -774,11 +774,11 @@ class Mnemo:
         over an aggressive one, since a wrong filter hard-deletes the answer (measured harm mode).
 
         influence_only (OPT-IN, default False -> zero behavior change): restrict the result to CORROBORATED
-        memories — those that meet the same bar mnemo uses for episodic->semantic GRADUATION (an EARNED
+        memories — those that meet the same bar inspeximus uses for episodic->semantic GRADUATION (an EARNED
         net-positive outcome via credit() [good>0 and good>=bad], OR already-graduated 'semantic' type, OR
         >=2 DISTINCT-canonical-source corroborating links). This is the retrieve-then-INFLUENCE split: recall
         freely for context, but call with influence_only=True for the set that is allowed to DRIVE an action.
-        MEASURED (mnemo/probes/agentpoison_influence_gate*.py) against a real AgentPoison-style single-
+        MEASURED (inspeximus/probes/agentpoison_influence_gate*.py) against a real AgentPoison-style single-
         instance retrieval-poisoning attack (Chen et al., NeurIPS 2024, arXiv:2407.12784; PoisonedRAG, Zou
         et al., arXiv:2402.07867): a natural-sentence trigger hijacks RAW top-1 retrieval 88-100% and is
         scale-invariant (60->10k memories), and retrieval-time / embedding-geometry defenses do NOT
@@ -793,7 +793,7 @@ class Mnemo:
         >=2 independent forged provenances) rather than making poisoning impossible. Reversible: default
         False = legacy recall. Call `influence_gate_report()` first to see this gate's LIVE cost on your store
         (it is density-dependent: ~51% of legit recalls filtered when memories are used ~once, ~6% when dense
-        — mnemo/probes/oracle_separation_density.py) and the load-bearing caveat that it rides on an
+        — inspeximus/probes/oracle_separation_density.py) and the load-bearing caveat that it rides on an
         un-self-gradable credit() oracle.
 
         prefer / prefer_trust (OPT-IN, default None -> zero behavior change): a SOFT, trust-weighted metadata
@@ -805,7 +805,7 @@ class Mnemo:
         filter. This is the a-priori-trust lever: weight the filter by the RELIABILITY of the extraction
         (e.g. alias-match strength: exact-name hit -> ~1.0, no-name/ambiguous guess -> ~0.0), NOT by the
         extractor model's own self-reported confidence (which is corrupted in the overconfident-on-wrong
-        case). MEASURED (mnemo/probes/locomo_soft_prefer_filter.py) on LoCoMo: soft prefer weighted by
+        case). MEASURED (inspeximus/probes/locomo_soft_prefer_filter.py) on LoCoMo: soft prefer weighted by
         alias-strength gives the filter's benefit on reliable (exact-name) queries while backing off on
         ambiguous ones where extraction fails -- beating both no filter and a hard `where` filter under
         imperfect extraction. Reversible: prefer=None = legacy recall.
@@ -816,7 +816,7 @@ class Mnemo:
         a record matching two cues is boosted more than one matching a single cue, and non-matching dims are
         inert (factor 1.0). A single dict + scalar prefer_trust is the one-dimension case (unchanged). Cap the
         TOTAL boost with `prefer_max_boost` (a ceiling on the product, like Elasticsearch function_score's
-        max_boost); default None = uncapped. MEASURED (mnemo/probes/locomo_composed_soft_filters.py) on LoCoMo:
+        max_boost); default None = uncapped. MEASURED (inspeximus/probes/locomo_composed_soft_filters.py) on LoCoMo:
         on questions carrying two independent cues (a resolved time window AND a named speaker), the product
         composition reached recall@20 0.865 vs 0.755 for the best single cue (+0.110, bootstrap CI excludes 0);
         a naive summed boost CAPPED at one dimension's trust crowded out (-0.053, the cap flattened the joint
@@ -828,12 +828,12 @@ class Mnemo:
         tie_recent (OPT-IN, default None -> zero behavior change): NEAR-TIE RECENCY REORDER for stale-vs-
         fresh fact competition. When a fact is later corrected in free text, SRO supersession never triggers
         and the STALE value can outrank the fresh one (measured on MemBench knowledge_update: the stale
-        value wins rank-1 in 32.7% of update questions, identically for raw cosine and mnemo semantic —
-        mnemo/probes/membench_recall_probe_v2.py). Pass a small similarity epsilon (measured sweet spot
+        value wins rank-1 in 32.7% of update questions, identically for raw cosine and inspeximus semantic —
+        inspeximus/probes/membench_recall_probe_v2.py). Pass a small similarity epsilon (measured sweet spot
         0.02-0.05 on centered cosine): candidates whose RELEVANCE is within tie_recent of the strongest
         candidate's relevance are re-ordered newest-first (by valid_from, falling back to ts) ahead of the
         rest; everything below the band keeps its score order. MEASURED
-        (mnemo/probes/membench_recency_tiebreak_probe.py, 222 questions incl. 3 control splits):
+        (inspeximus/probes/membench_recency_tiebreak_probe.py, 222 questions incl. 3 control splits):
         tie_recent=0.05 cuts stale-beats-fresh 0.327 -> 0.109 (3x) at ~zero hit@1/5 cost on non-update
         control splits; a LINEAR position bonus was measured USELESS (no SBF movement before it damages
         controls) — the band reorder is the shape that works. HONEST SCOPE: (a) in the benchmark the
@@ -871,7 +871,7 @@ class Mnemo:
         # in the record's meta; boost = 1 + trust * exp(-distance / half) (neutral 1.0 when far or when the
         # record lacks the dims, so a missing/weak cue degrades gracefully, never hard-deletes). `half` is the
         # distance at which the boost is ~1+trust/e. Composes multiplicatively with `prefer` and text sim.
-        # MEASURED (mnemo/probes/continuous_chunk_recall_probe.py): on a real TAT 5-D state trace, near-boost on
+        # MEASURED (inspeximus/probes/continuous_chunk_recall_probe.py): on a real TAT 5-D state trace, near-boost on
         # the state vector beats plain text recall on state/regime-relevance retrieval (precision@5 0.984 vs 0.758)
         # where categorical filters cannot (the values are continuous). Soft cue that re-ranks the pool, not a
         # vector index; coverage-weighted + NaN-guarded. Reversible: near=None = byte-identical legacy recall.
@@ -900,7 +900,7 @@ class Mnemo:
             return include_superseded            # superseded / other non-active
         pool = [r for r in self.items if _eligible(r)]
         # Scope/namespace isolation: when a scope is requested, recall ONLY sees memories tagged with that scope
-        # (meta['scope']) BEFORE ranking — a shared store (e.g. many agents / tenants in one Mnemo) cannot bleed
+        # (meta['scope']) BEFORE ranking — a shared store (e.g. many agents / tenants in one Inspeximus) cannot bleed
         # one scope's memories into another's recall. scope=None (default) sees everything (legacy behavior).
         if scope is not None:
             pool = [r for r in pool if (r.get("meta") or {}).get("scope") == scope]
@@ -918,7 +918,7 @@ class Mnemo:
         # Rank Fusion. We MEASURED hybrid robustly beating EITHER channel alone for agent memory on LoCoMo
         # (recall@20 0.61 hybrid vs 0.55 lexical vs 0.53 semantic; +0.057 over the best single channel,
         # 9/10 conversations, conversation-level bootstrap CI excludes 0). So 'auto' now fuses (was: switch
-        # lexical->semantic at the threshold). Receipt: mnemo/probes/locomo_retrieval_map.py. RRF needs no
+        # lexical->semantic at the threshold). Receipt: inspeximus/probes/locomo_retrieval_map.py. RRF needs no
         # tuning and no extra dependency. Force a single channel with mode='lexical'/'semantic'.
         has_embed = self.embed is not None
         if mode == "lexical" or not has_embed:
@@ -1153,7 +1153,7 @@ class Mnemo:
         slash()/restore() so forfeiting a source also reaches every derived record it fed."""
         src = rec.get("source")
         doc = src.get("doc") if isinstance(src, dict) else (src if isinstance(src, str) else None)
-        own = Mnemo._canon_source(doc) if doc else "id:" + rec["id"]
+        own = Inspeximus._canon_source(doc) if doc else "id:" + rec["id"]
         return {own} | set(rec.get("taint") or [])
 
     @staticmethod
@@ -1168,7 +1168,7 @@ class Mnemo:
                 continue
             src = lr.get("source")
             doc = src.get("doc") if isinstance(src, dict) else (src if isinstance(src, str) else None)
-            keys.add(Mnemo._canon_source(doc) if doc else "id:" + lid)
+            keys.add(Inspeximus._canon_source(doc) if doc else "id:" + lid)
         return len(keys)
 
     @staticmethod
@@ -1196,7 +1196,7 @@ class Mnemo:
         A LANDED RETRACTION WINS: a record slash()'d (meta['slashed']) is not corroborated on ANY path — incl.
         distinct-link corroboration — so a caught poison cannot stay load-bearing via independent-looking links
         (jacksonxly's invariant: nothing false stays load-bearing past the correctness signal). restore() clears
-        the flag, so this is reversible; receipt mnemo/probes/retraction_propagation.py.
+        the flag, so this is reversible; receipt inspeximus/probes/retraction_propagation.py.
         FAIL-CLOSED PROVENANCE: an ORPHAN (a declared transformation output that named no parent, meta-flag
         rec['orphan']) is likewise not corroborated on any path -- missing lineage is treated as unverified, so
         an app-side summary that dropped its derived_from cannot quietly earn standing or survive a retraction."""
@@ -1209,8 +1209,8 @@ class Mnemo:
         if rec.get("mtype") == "semantic":
             return True
         if strict:
-            return Mnemo._distinct_verified_keys(rec.get("links"), by_id) >= 2
-        return Mnemo._distinct_sources(rec.get("links"), by_id) >= 2
+            return Inspeximus._distinct_verified_keys(rec.get("links"), by_id) >= 2
+        return Inspeximus._distinct_sources(rec.get("links"), by_id) >= 2
 
     def _coherence(self, a_rec: dict, b_rec: dict) -> float:
         """Semantic coherence of two records in [0,1]: embedder cosine if `embed` is set and both carry a vec,
@@ -1266,14 +1266,14 @@ class Mnemo:
             eff = self._gated_links(rec, by_id)
             if eff != rec.get("links"):
                 rec = {**rec, "links": eff}   # shallow copy with the effective links; never mutate the stored record
-        return Mnemo._is_corroborated(rec, by_id, self.strict_corroboration)
+        return Inspeximus._is_corroborated(rec, by_id, self.strict_corroboration)
 
     def influence_gate_report(self) -> dict:
         """Report the LIVE COST of the influence gate (recall(influence_only=True)) on THIS store, so you can
         judge whether it is affordable before enabling it. The gate keeps only CORROBORATED memories
         (_is_corroborated); its cost is that not-yet-earned LEGITIMATE memories are filtered too, and that cost
         is DENSITY-DEPENDENT. MEASURED on a controlled corpus with real embeddings
-        (mnemo/probes/oracle_separation_density.py): the fraction of legitimate high-stakes recalls the gate
+        (inspeximus/probes/oracle_separation_density.py): the fraction of legitimate high-stakes recalls the gate
         blocks falls from ~51% when each memory is used ~once (sparse) to ~6% when each is used ~8x (dense),
         because a legit memory only earns standing through repeated successful use — so in a SPARSE store the
         gate is expensive (it filters most legit recalls); grow density, or credit() real outcomes, before
@@ -1369,7 +1369,7 @@ class Mnemo:
         nudged so future recall ranks by WAS-IT-RIGHT, not merely was-it-recalled. Append-only to the
         counts; never edits raw text. `outcome` may be a bool, a sign (>0 good), or a verdict string
         (good/right/correct/reproduced/hit vs bad/wrong/failed/miss)."""
-        good = Mnemo._outcome_good(outcome)
+        good = Inspeximus._outcome_good(outcome)
         by_id = {x["id"]: x for x in self.items}
         key, updated = ("good" if good else "bad"), []
         for i in (ids or []):
@@ -1389,12 +1389,12 @@ class Mnemo:
         without the caller hand-threading ids into credit(). This raises the earned-outcome COVERAGE of
         memory, which we measured to be the binding constraint (retrieval->earned conversion ~28% on a live
         store; the rest of the recalled set never converts to a gradable outcome — the attribution gap, not
-        a fundamental ceiling; mnemo/probes/retrieval_exposure_coverage_probe.py + the outcome-propagation
-        lift measured in mnemo/probes/outcome_propagation_probe.py).
+        a fundamental ceiling; inspeximus/probes/retrieval_exposure_coverage_probe.py + the outcome-propagation
+        lift measured in inspeximus/probes/outcome_propagation_probe.py).
 
         `ids` defaults to the last recall set (self._last_recall). `driving_only=True` (default) restricts
         the credited set to the DECISION-DRIVING subset: pass the specific id(s) the action actually used
-        (the app knows which memory it acted on), or, if ids is None, mnemo credits only the recall set's
+        (the app knows which memory it acted on), or, if ids is None, inspeximus credits only the recall set's
         CORROBORATED members (the same bar as recall(influence_only=True)) — so a poison that merely rode
         into the recall set as soft context cannot earn credit for an honest action's success (the recall-
         set-attribution poison surface). LOAD-BEARING LIMIT (not hidden): driving_only=True with ids=None
@@ -1433,8 +1433,8 @@ class Mnemo:
         identity (a source id or, better, a verified pubkey) and MUST differ from the claim's own attested
         key/source -- self-ratification is rejected (the whole point of the ratchet). Duplicate (by_key, kind,
         lens) does not stack, so a correlated/repeat auditor adds nothing. Returns {ok, grade, novel, reason}."""
-        if kind not in Mnemo._RATIFY_KINDS:
-            raise ValueError(f"kind must be one of {Mnemo._RATIFY_KINDS}")
+        if kind not in Inspeximus._RATIFY_KINDS:
+            raise ValueError(f"kind must be one of {Inspeximus._RATIFY_KINDS}")
         by_id = {x["id"]: x for x in self.items}
         rec = by_id.get(id)
         if rec is None:
@@ -1473,8 +1473,8 @@ class Mnemo:
         repro = keys("reproduction"); witness = keys("independent_witness")
         prior_empty = keys("prior_art_empty")
         lenses = {r.get("lens") for r in rats if r.get("kind") in ("reproduction", "audit") and r.get("lens")}
-        multi = (Mnemo._distinct_verified_keys(rec.get("links"), by_id) >= 2) if strict \
-            else (Mnemo._distinct_sources(rec.get("links"), by_id) >= 2)
+        multi = (Inspeximus._distinct_verified_keys(rec.get("links"), by_id) >= 2) if strict \
+            else (Inspeximus._distinct_sources(rec.get("links"), by_id) >= 2)
         earned = good > 0 and good >= bad
         attested = bool(rec.get("attested_key"))
         corroborated = multi or bool(witness) or bool(repro) or earned
@@ -1510,8 +1510,8 @@ class Mnemo:
         g = self.grade(rec, _by_id=by_id)
         ev = g["evidence"]
         links = [l for l in (rec.get("links") or []) if l in by_id]
-        n_src = Mnemo._distinct_sources(rec.get("links"), by_id)
-        n_keys = Mnemo._distinct_verified_keys(rec.get("links"), by_id)
+        n_src = Inspeximus._distinct_sources(rec.get("links"), by_id)
+        n_keys = Inspeximus._distinct_verified_keys(rec.get("links"), by_id)
         adjudicated = ev["reproductions"] > 0 or (ev["attested"] and (ev["multi_source"] or ev["witnesses"] > 0))
         convergence_only = (ev["multi_source"] or ev["witnesses"] > 0) and not adjudicated
         low_diversity = len(links) >= 2 and n_src <= 1
@@ -1537,7 +1537,7 @@ class Mnemo:
         parents = [p for p in (rec.get("derived_from") or []) if p in by_id]
         lineage_grade = g["grade"]
         if parents:
-            rank = {gr: i for i, gr in enumerate(Mnemo._GRADES)}
+            rank = {gr: i for i, gr in enumerate(Inspeximus._GRADES)}
             par_grades = [self.grade(by_id[p], _by_id=by_id)["grade"] for p in parents]
             lineage_grade = min([g["grade"]] + par_grades, key=lambda gr: rank.get(gr, 0))
             if rank.get(lineage_grade, 0) < rank.get(g["grade"], 0):
@@ -1563,18 +1563,18 @@ class Mnemo:
         recalled for context, just not trusted to drive an action. This makes cost-of-corruption scale with the
         accrued standing + detection (Becker expected-penalty: the penalty must beat gain / P(caught)), which is
         the lever that bites a time-rich patient attacker a per-action cap only lets him amortize. MEASURED
-        motivation: mnemo/probes/triad_attacker_split.py + reversibility_gate_frontier.py (the residual against a
+        motivation: inspeximus/probes/triad_attacker_split.py + reversibility_gate_frontier.py (the residual against a
         patient sleeper is a slow-cumulative in-domain attack; retroactive forfeiture, not a throughput cap, is
         the dominant control). Returns {slashed, sources, ids}. Records + raw text untouched; only good/bad/mtype
         change, auditable via meta['slashed']. Reversible: nothing is deleted."""
         by_id = {x["id"]: x for x in self.items}
         caught = [by_id[i] for i in (ids or []) if i in by_id]
         if scope == "source":
-            bad_sources = set().union(*(Mnemo._rec_sources(r) for r in caught)) if caught else set()
+            bad_sources = set().union(*(Inspeximus._rec_sources(r) for r in caught)) if caught else set()
             # a record is caught if its own source OR any inherited taint intersects the slashed sources ->
             # forfeiting a source also burns every derived summary/consolidation it fed (provenance-carried).
             targets = [r for r in self.items if r.get("status") == "active"
-                       and (Mnemo._rec_sources(r) & bad_sources)]
+                       and (Inspeximus._rec_sources(r) & bad_sources)]
             sources = sorted(bad_sources)
         else:                                    # scope='memory' — only the named records
             targets, sources = caught, []
@@ -1608,8 +1608,8 @@ class Mnemo:
         by_id = {x["id"]: x for x in self.items}
         seed = [by_id[i] for i in (ids or []) if i in by_id]
         if scope == "source":
-            srcs = set().union(*(Mnemo._rec_sources(r) for r in seed)) if seed else set()
-            targets = [r for r in self.items if (Mnemo._rec_sources(r) & srcs) and (r.get("meta") or {}).get("slashed")]
+            srcs = set().union(*(Inspeximus._rec_sources(r) for r in seed)) if seed else set()
+            targets = [r for r in self.items if (Inspeximus._rec_sources(r) & srcs) and (r.get("meta") or {}).get("slashed")]
             sources = sorted(srcs)
         else:
             targets, sources = [r for r in seed if (r.get("meta") or {}).get("slashed")], []
@@ -1685,10 +1685,10 @@ class Mnemo:
         persists to a side file (cross-session). Returns {alarms, slashed, cusum}. Undo a false alarm with
         restore()."""
         self.credit(ids, outcome, weight)                    # standing accrues normally...
-        bad = 0.0 if Mnemo._outcome_good(outcome) else 1.0
+        bad = 0.0 if Inspeximus._outcome_good(outcome) else 1.0
         by_id = {x["id"]: x for x in self.items}
         recs = [by_id[i] for i in (ids or []) if i in by_id]
-        srcs = set().union(*(Mnemo._rec_sources(r) for r in recs)) if recs else set()
+        srcs = set().union(*(Inspeximus._rec_sources(r) for r in recs)) if recs else set()
         S = self._cusum_state()
         alarms = []
         for s in srcs:
@@ -1699,7 +1699,7 @@ class Mnemo:
         if auto_slash and alarms:
             for s in alarms:
                 rep = next((r["id"] for r in self.items
-                            if r.get("status") == "active" and s in Mnemo._rec_sources(r)), None)
+                            if r.get("status") == "active" and s in Inspeximus._rec_sources(r)), None)
                 if rep:
                     slashed[s] = self.slash([rep], scope="source")["slashed"]
                 S[s] = 0.0                                    # reset the breached statistic after firing
@@ -1770,7 +1770,7 @@ class Mnemo:
         source's ceiling by calling with a higher budget or editing the side file by hand."""
         by_id = {x["id"]: x for x in self.items}
         recs = [by_id[i] for i in (ids or []) if i in by_id]
-        srcs = sorted(set().union(*(Mnemo._rec_sources(r) for r in recs)) if recs else set())
+        srcs = sorted(set().union(*(Inspeximus._rec_sources(r) for r in recs)) if recs else set())
         B = self._budget_state()
         # PROVENANCE-SCALED cap (OPT-IN, provenance_lo=None -> uniform legacy path, byte-identical): a source with
         # NO corroborated contributing record is capped at the small `provenance_lo` instead of `budget`, so a
@@ -1779,7 +1779,7 @@ class Mnemo:
         # actually cash out -- rather than the whole store (jacksonxly's lever-1 refinement, r/RAG 2026-07).
         # HONEST: `provenance_lo` is a tunable policy knob, not a measured constant, and it still relocates to the
         # Sybil identity axis (a fresh low-provenance identity gets a fresh provenance_lo). See
-        # mnemo/probes/soft_influence_taint_probe.py.
+        # inspeximus/probes/soft_influence_taint_probe.py.
         if provenance_lo is None:
             _cap = lambda s: float(budget)
         else:
@@ -1798,7 +1798,7 @@ class Mnemo:
             _full_srcs = set()
             for r in recs:
                 if _grants_full(r):
-                    _full_srcs |= Mnemo._rec_sources(r)
+                    _full_srcs |= Inspeximus._rec_sources(r)
             _cap = lambda s: float(budget) if s in _full_srcs else float(provenance_lo)
         # the tightest contributing source binds: deny if ANY contributing source would exceed its lifetime budget
         exhausted = [s for s in srcs if float(B.get(s, 0.0)) + float(amount) > _cap(s)]
@@ -1845,7 +1845,7 @@ class Mnemo:
         """Multi-hop recall. One-shot top-k misses evidence reachable only via a BRIDGE entity (a fact whose
         detail lives in a memory NOT similar to the query). This does: retrieve -> let a capable model read the
         results and name what's missing, emitting follow-up queries -> retrieve again -> merge (dedup by id).
-        `ask_followup(query, current_results) -> list[str]` is caller-supplied, so mnemo stays model-agnostic
+        `ask_followup(query, current_results) -> list[str]` is caller-supplied, so inspeximus stays model-agnostic
         (inject any model/LLM). MEASURED ~3.3x multi-hop full-evidence recall vs one-shot top-k on LoCoMo
         (0.057 -> 0.186, n=70 across 3 conversations) — the one mechanism that moved the multi-hop bottleneck
         where static retrieval tricks (dense-neighbor, lexical bridges) did not. More expensive (a model call
@@ -2110,7 +2110,7 @@ class Mnemo:
 
 # ── per-type decay priors (the half-life a memory's ranking value decays at, by kind) ──────────
 # episodic = events (fade fast); semantic = durable facts (fade slow); procedural = rules/prefs
-# (barely fade). Access resets the decay clock (see Mnemo._effective_value). Tunable.
+# (barely fade). Access resets the decay clock (see Inspeximus._effective_value). Tunable.
 _HALFLIFE_S = {"episodic": 7 * 86400, "semantic": 180 * 86400, "procedural": 3650 * 86400}
 # accrued value at which a repeatedly-recalled EPISODIC memory graduates to semantic (≈16 strong
 # recalls from the 1.0 floor); proven-durable, so it should decay on the slow clock, not the fast one.
@@ -2170,7 +2170,7 @@ def _value_clash(a: str, b: str) -> bool:
 
 
 if __name__ == "__main__":
-    m = Mnemo()                                  # no path, no embedder — pure in-memory + lexical
+    m = Inspeximus()                                  # no path, no embedder — pure in-memory + lexical
     m.remember("SGD converges slowly due to gradient variance.", tags=["optimization"], value=3)
     m.remember("SGD does not converge slowly.", tags=["optimization"], value=1)
     m.remember("Pre-trend tests catch only 31% of fatal DiD bias.", tags=["causal"], value=2)
@@ -2178,4 +2178,4 @@ if __name__ == "__main__":
     print("consolidate:", m.consolidate(keep=10))
     print("contradictions:", m.contradictions())       # flags the SGD pair (related + one negates)
     print("value_by_cohort:", m.value_by_cohort())
-    print("(For semantic recall, pass embed=your_model to Mnemo(); lexical is the zero-dep fallback.)")
+    print("(For semantic recall, pass embed=your_model to Inspeximus(); lexical is the zero-dep fallback.)")

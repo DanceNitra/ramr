@@ -23,8 +23,8 @@ type: software
 authors:
   - name: "Agora"
     website: "https://github.com/DanceNitra"
-version: "0.4.1"
-date-released: "2026-06-28"
+version: "0.4.2"
+date-released: "2026-07-22"
 license: MIT
 url: "https://github.com/DanceNitra/ramr"
 repository-code: "https://github.com/DanceNitra/ramr"

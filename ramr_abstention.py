@@ -1,4 +1,4 @@
-"""RAMR ABSTENTION / false-recall metric (validates mnemo's new relevance-floor). A memory layer that confabulates
+"""RAMR ABSTENTION / false-recall metric (validates inspeximus's new relevance-floor). A memory layer that confabulates
 a weak false match when the queried fact is NOT in the store is worse than one that says "not in memory". Test:
 store M templated facts; probe with (a) IN-STORE queries (the stored facts) and (b) OUT-OF-STORE queries (same
 attribute, an entity that was never stored -> partially overlaps stored facts via the shared attribute word, so a
@@ -10,7 +10,7 @@ in-store recall >= 0.9, the relevance-floor does not buy clean abstention on thi
 import os, sys, json
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo import Mnemo
+from inspeximus import Inspeximus
 
 M = int(os.getenv("ABS_M", "40"))
 N_SEEDS = int(os.getenv("ABS_SEEDS", "5"))
@@ -21,7 +21,7 @@ L = "abcdefghijklmnopqrstuvwxyz"
 
 def build(seed):
     r = np.random.default_rng(seed)
-    store = Mnemo(path=None, embed=None); store.semantic_threshold = 10 ** 9
+    store = Inspeximus(path=None, embed=None); store.semantic_threshold = 10 ** 9
     instore, outstore = [], []
     for i in range(M):
         sfx = L[i // 26] + L[i % 26]
@@ -63,7 +63,7 @@ if __name__ == "__main__":
         print(f"  RELEVANCE-FLOOR BUYS CLEAN ABSTENTION: at min_relevance={best:.1f}, recall correctly abstains on "
               f"{res[best][1]:.0%} of out-of-store probes while keeping {res[best][0]:.0%} in-store recall. Without "
               f"a floor (0.0) it confabulates a wrong fact on {1-res[0.0][1]:.0%} of out-of-store probes. The "
-              f"feature works: mnemo can say 'not in memory' instead of returning noise -- a real reliability win "
+              f"feature works: inspeximus can say 'not in memory' instead of returning noise -- a real reliability win "
               f"and the substrate for verify-before-citing.", flush=True)
     else:
         print(f"  no floor cleanly separated (abstention>=0.8 & in-recall>=0.9). Report honestly; tune the metric "

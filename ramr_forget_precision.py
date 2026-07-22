@@ -1,5 +1,5 @@
 """RAMR candidate 6th metric -- FORGET-PRECISION: after a fact is UPDATED, does recall return the CURRENT value or
-the STALE one? A memory layer that can't forget superseded info silently serves outdated facts. mnemo has a
+the STALE one? A memory layer that can't forget superseded info silently serves outdated facts. inspeximus has a
 state-toggle supersession pass (consolidate() marks the older of a contradicting pair `superseded`, and recall
 excludes superseded by default). But its toggle detector `_negation_clash` only fires on an explicit polarity flip
 (not/no/never/false) -- so we test TWO regimes:
@@ -14,7 +14,7 @@ real gap: silent numeric updates are merged as duplicates, not superseded). ASCI
 import os, sys, json
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo import Mnemo
+from inspeximus import Inspeximus
 
 M_TOPICS = int(os.getenv("FP_M", "30"))
 N_SEEDS = int(os.getenv("FP_SEEDS", "6"))
@@ -31,7 +31,7 @@ def topics(regime, seed):
     r = np.random.default_rng(seed); out = []
     L = "abcdefghijklmnopqrstuvwxyz"
     # EVERY content token is unique per topic (entity, attribute, predicate, value) so different topics share NO
-    # words -> avoids mnemo's hub-flagging (a word common to the whole corpus marks every memory a "universal
+    # words -> avoids inspeximus's hub-flagging (a word common to the whole corpus marks every memory a "universal
     # matcher" hub, which recall then skips). 'not' is a stopword, so it never contributes to overlap/hubs; it
     # only triggers the negation clash. This isolates the supersession behaviour we are measuring.
     for i in range(M_TOPICS):
@@ -50,7 +50,7 @@ def topics(regime, seed):
 
 def run(regime, consolidate, seed):
     tps = topics(regime, seed)
-    store = Mnemo(path=None, embed=None); store.semantic_threshold = 10 ** 9
+    store = Inspeximus(path=None, embed=None); store.semantic_threshold = 10 ** 9
     cur_ids = []
     for tp in tps:
         store.remember(tp["f1"], tags=["f"], value=3.0, mtype="semantic")   # STALE gets HIGHER value

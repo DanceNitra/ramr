@@ -14,3 +14,5 @@ data/emb_cache.json
 *.p12
 *_key
 *.key
+ramr-v*.zip
+ramr_stealth_yield*

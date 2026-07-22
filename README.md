@@ -65,22 +65,22 @@ libraries developers actually run, through one shared, ground-truth-blind judge 
 - **Bi-temporal** ([`integrity/temporal_cell.py`](integrity/temporal_cell.py)) — deterministic (unique-token
   ground truth, no judge): reversed-ingest now-accuracy, `as_of(valid-time)` point queries, and a transaction-time
   back-fill (a later correction must not leak into the earlier belief). **This is a parity-with-leaders cell, not
-  a mnemo win** — bi-temporal modelling is the *documented design* of the graph-memory leaders **Zep**
+  an inspeximus win** — bi-temporal modelling is the *documented design* of the graph-memory leaders **Zep**
   ([arXiv:2501.13956](https://arxiv.org/abs/2501.13956), `t_valid/t_invalid` vs `t′created/t′expired`) and
   **Graphiti** ([getzep/graphiti](https://github.com/getzep/graphiti), `valid_at/invalid_at` + `created_at`), which
   are **not run here** (they need a live Neo4j + LLM pipeline) and are listed, not scored. Measured this cycle:
-  **mnemo 4/4**; **mem0** (default vector store) has no valid-time channel (reversed-ingest returns the stale
-  value; no `as_of`). Result: mnemo *matches* the bi-temporal leaders and *leads* plain vector stores — it does
+  **inspeximus 4/4**; **mem0** (default vector store) has no valid-time channel (reversed-ingest returns the stale
+  value; no `as_of`). Result: inspeximus *matches* the bi-temporal leaders and *leads* plain vector stores — it does
   not beat Zep/Graphiti on this axis, and we don't claim it does.
 
 ```bash
-pip install agora-mnemo
+pip install inspeximus
 python integrity/run.py                      # revert + echo, local free Ollama judge
 python integrity/erasure_selfcheck.py        # your stack's erasure receipt
 python integrity/temporal_cell.py            # bi-temporal cell -> results/temporal.json
 ```
 
-Method, the fairness fix that dropped mnemo's revert headline from a flattering 1.00 to 0.75, and how to add
+Method, the fairness fix that dropped inspeximus's revert headline from a flattering 1.00 to 0.75, and how to add
 your system: [`integrity/METHODOLOGY.md`](integrity/METHODOLOGY.md) · [`integrity/SUBMISSION.md`](integrity/SUBMISSION.md).
 
 ---
@@ -116,7 +116,7 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   the *value* of an outcome/credit channel, it is **not** a head-to-head win over shipped products (mem0/Zep were
   not run).
   - The independent scikit-learn `NearestNeighbors(cosine)` retriever (not our code) scores **identically** to
-    mnemo-NONE (gap 0.000 at every D), confirming NONE is a faithful standard retriever, not a strawman;
+    inspeximus-NONE (gap 0.000 at every D), confirming NONE is a faithful standard retriever, not a strawman;
     outcome-ranked beats this independent baseline by **+0.469 at D=8, CI [+0.438, +0.500]**.
 - **FORGET-PRECISION: a memory layer's ability to forget is only as good as its update detector.** After a fact is
   superseded, does recall return the current value? With the supersession pass, forget-precision is **1.00** for an
@@ -130,7 +130,7 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   FORGET-PRECISION shows the correction holds (1.00). But when the retired value is re-asserted afterwards — a
   benign restatement or an attacker re-injecting it — a last-writer-wins / validity-recency store treats the echo as
   the newest assertion and **resurrects the stale value: echo-resistance 0.00** (verbatim AND reworded, n=30). A
-  superseded-object ledger (`mnemo` `echo_guard`, object-keyed) refuses to let an already-retired value be revived
+  superseded-object ledger (`inspeximus` `echo_guard`, object-keyed) refuses to let an already-retired value be revived
   by a mere restatement → **echo-resistance 1.00**, with FORGET-PRECISION unchanged (the correction still sticks). A
   *genuine* reversal back to the old value needs an explicit `reaffirm` signal. Honest scope: this tests
   **value-preserving** restatements (the value token is present) — a value-*obscuring* / coreferent echo ("go back to
@@ -146,10 +146,10 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
 
   | backend | forget-precision | echo-resistance |
   |---|---|---|
-  | mnemo (echo_guard off) | 1.00 | 0.00 |
+  | inspeximus (echo_guard off) | 1.00 | 0.00 |
   | **mem0 2.0.11** (add-based, real system) | 0.87 | **0.53** (95% CI 0.37–0.70) |
   | **Zep/Graphiti** (Neo4j + OpenAI, real runtime) | 0.87 | **0.87** — echo-attributable **1.00** † |
-  | mnemo (echo_guard on) | 1.00 | **1.00** |
+  | inspeximus (echo_guard on) | 1.00 | **1.00** |
 
   † Graphiti's raw 0.87 is not an echo failure. Disaggregating pre-echo vs post-echo per case (n=30): in the
   **26/30 cases where the correction actually registered, the echo flipped exactly 0 of them** (echo-attributable
@@ -164,7 +164,7 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   reproduces an all-local Ollama-config run (0.57), so the effect is config-robust, not an artifact of one judge.
   This isn't a "mem0 bug": an add-based store keeps both values and reconciles at read time, and the reader
   sometimes returns the retired one (its extractor writes a "reverted back to <old>" record — observed in inspected
-  cases). mnemo's default keyed supersession is fully vulnerable (0.00, store-deterministic); `echo_guard` closes it
+  cases). inspeximus's default keyed supersession is fully vulnerable (0.00, store-deterministic); `echo_guard` closes it
   (1.00). Honest scope: a small synthetic probe (n=30), value-preserving echoes, single judge — a demonstration, not
   a definitive benchmark; report the CI, not a point estimate. Add a backend via a 3-method adapter to benchmark
   your own store.
@@ -177,8 +177,8 @@ _All numbers below are traceable to a persisted result JSON and recomputed by `v
   echo folds onto it via the `_normalize_string_exact` fast-path and a reworded one is handed to the resolver LLM
   with the stale edge present to dedup against. The only staleness (4/30) is Graphiti's extraction pipeline never
   writing the correction in the first place (a `Target entity not found` extraction miss), which the echo neither
-  causes nor exploits. **Takeaway: this is not "mnemo defends, Graphiti doesn't" — a real bi-temporal store and an
-  object-keyed ledger both defend, structurally.** mnemo's edge is being a single zero-dependency file with no graph
+  causes nor exploits. **Takeaway: this is not "inspeximus defends, Graphiti doesn't" — a real bi-temporal store and an
+  object-keyed ledger both defend, structurally.** inspeximus's edge is being a single zero-dependency file with no graph
   DB or LLM-extraction step (which is exactly where Graphiti's 13% leaks), and the still-open frontier both share:
   a value-*obscuring* echo ("go back to the old one") carries no value to invalidate against and defeats object-level
   and edge-level defenses alike. `graphiti_echo_run.py`.
@@ -230,7 +230,7 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
   conformance runner that scores each fixture's RAMR-side measured quantity (recovered_side_effect /
   recovered_current_approval / full_chain_recovered / target_current) against the frozen `expected` — all PASS.
   Boundary stays: RAMR measures retrieval reliability, LS owns the verdict; *a retrieval miss is a reliability
-  failure, not execution permission*. `superseded_approval` + `target_state_drift` ride mnemo's bi-temporal
+  failure, not execution permission*. `superseded_approval` + `target_state_drift` ride inspeximus's bi-temporal
   `valid_from`/`invalidated_at`; `incomplete_dependency_chain` rides CHAIN-FRAGILITY.
 - **v0.2.0** — **RAMR↔LS interoperability** (collaboration with [safal207/LS](https://github.com/safal207/LS),
   [anthropics/claude-code#34556](https://github.com/anthropics/claude-code/issues/34556)). RAMR hosts the canonical
@@ -240,12 +240,12 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
   `reliability_signal`, recall `budget`) and scores `recovered_side_effect`. Boundary: **RAMR measures retrieval
   reliability; LS evaluates the deterministic continuation verdict.** Invariant: *a retrieval miss is a reliability
   failure, not execution permission* — so a duplicate completed side effect is REJECTed whether or not the record
-  was recovered. Also lands two `mnemo` upgrades used by the envelope (both regression-gated, no metric change):
+  was recovered. Also lands two `inspeximus` upgrades used by the envelope (both regression-gated, no metric change):
   **source-span provenance** (`remember(source=)`, surfaced in `recall()`) and a **poison-propagation guard**
   (episodic→semantic graduation now requires corroboration — provenance, a positive outcome, or a corroborating
   link — so a confabulation can't become durable on recall-frequency alone).
 - **v0.1.9** — added a **TEMPORAL-AS-OF** metric (`ramr_temporal_asof.py`) and **bi-temporal validity** in the
-  reference core (`mnemo`): `remember(valid_from=)`, supersession resolves by validity-time not ingest-order, and
+  reference core (`inspeximus`): `remember(valid_from=)`, supersession resolves by validity-time not ingest-order, and
   `recall(as_of=T)`. Result: under reversed ingest (stale fact arrives later), the old ingest-order rule serves the
   STALE value (now_accuracy 0.00) while validity-time serves the CURRENT one (1.00) and as-of recall returns the
   historical value (1.00). FORGET-PRECISION + SUPERSESSION-FP + OPERATIONAL-CONTINUITY unchanged (valid_from
@@ -257,7 +257,7 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
   necessary AND sufficient — with it, duplicate-rate = the recall-budget floor (robust to unlimited history);
   without it, 1.00 at every budget. A new agentic axis beyond fact recall (it measures a duplicate-side-effect cost,
   not fact survival).
-- **v0.1.7** — **fixed a supersession false-positive in the reference core (`mnemo`)** surfaced by a new severe
+- **v0.1.7** — **fixed a supersession false-positive in the reference core (`inspeximus`)** surfaced by a new severe
   test (`ramr_supersession_fp.py`): the numeric value-update detector over-fired on ENUMERATED facts
   (`"step 1 takes 5 min"`, `"step 2 takes 8 min"` strip to the same skeleton) and silently superseded coexisting
   records — a 6-item store collapsed to 1/6 active. Fixed by comparing numbers POSITIONALLY (a value update changes
@@ -280,9 +280,9 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
   memory') while keeping 100% in-store recall, vs confabulating a wrong fact 100% of the time at floor 0.
 - **v0.1.2** — added a **signal-reliability break-even** harness (`ramr_breakeven.py`): sweeps credit
   reliability p x ambiguity D and shows recall-lift crosses zero at the no-signal floor 1/(1+D),
-  validating the law on the engine; also characterizes mnemo's `cal_mode` (full/boost/gated) tradeoff.
+  validating the law on the engine; also characterizes inspeximus's `cal_mode` (full/boost/gated) tradeoff.
 - **v0.1.1** — added the **FORGET-PRECISION** metric (`ramr_forget_precision.py`). It surfaced a gap in the
-  reference memory core (`mnemo`): supersession only fired on explicit negation, so a *silent numeric value-update*
+  reference memory core (`inspeximus`): supersession only fired on explicit negation, so a *silent numeric value-update*
   was merged as a duplicate and recall kept serving the stale value (forget-precision 0.00). Fixed by detecting a
   near-duplicate pair that differs only in a numeric value as a state-toggle → forget-precision 0.00 → **0.97**.
   (Finding your own gap with a new metric and fixing it is the point.)
@@ -300,7 +300,7 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 3. **Falsifiable.** Every metric ships with a pre-registered falsifier and bootstrap CIs; we record honest
    negatives (e.g. adversarial lexical distractors did NOT bite) and corrections (we caught our own
    summary-budget confound) rather than hiding them.
-4. **Independent baselines.** Claims about our own components (mnemo) are checked against standard, independent
+4. **Independent baselines.** Claims about our own components (inspeximus) are checked against standard, independent
    libraries on identical inputs.
 
 ---

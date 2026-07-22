@@ -2,9 +2,9 @@
   "cell": "temporal",
   "deterministic": true,
   "judge": "none (unique-token ground truth)",
-  "honest_scope": "PARITY-with-leaders cell, not a mnemo-uniqueness claim; graph-memory leaders (Zep, Graphiti) are also bi-temporal and are not run here.",
+  "honest_scope": "PARITY-with-leaders cell, not an inspeximus-uniqueness claim; graph-memory leaders (Zep, Graphiti) are also bi-temporal and are not run here.",
   "systems": {
-    "mnemo": {
+    "inspeximus": {
       "now_accuracy_reversed_ingest": true,
       "as_of_valid_time": true,
       "transaction_time_backfill": true,

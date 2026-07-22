@@ -54,13 +54,13 @@ def _emb():
 
 CHECKS = {}   # name -> callable() -> (present_after_delete_and_compaction, file_or_note)
 
-def check_mnemo():
-    from mnemo import Mnemo
-    d = tempfile.mkdtemp(); m = Mnemo(path=os.path.join(d, "s.json"))
+def check_inspeximus():
+    from inspeximus import Inspeximus
+    d = tempfile.mkdtemp(); m = Inspeximus(path=os.path.join(d, "s.json"))
     m.remember(MARK, key="k::sc", source={"doc": "sc"}, pii=True); m._save(force=True)
     m.forget_subject("sc", request_id="sc"); m._save(force=True)
     _vacuum(d); return bool(_residue(d)), _residue(d)
-CHECKS["mnemo"] = check_mnemo
+CHECKS["inspeximus"] = check_inspeximus
 
 def check_mem0():
     from mem0 import Memory
@@ -129,7 +129,7 @@ def main(argv):
     print("This is YOUR result. 'PRESENT' = the marker's bytes are still in the store's files after its own")
     print("delete + VACUUM (logical residue). It is NOT an at-rest-security verdict (plaintext stores of any")
     print("library leave bytes in free space/backups - use FDE + crypto-erasure). If a result surprises you,")
-    print("raise it with that project via coordinated disclosure. mnemo adds content-free deletion + shred().")
+    print("raise it with that project via coordinated disclosure. inspeximus adds content-free deletion + shred().")
 
 
 if __name__ == "__main__":

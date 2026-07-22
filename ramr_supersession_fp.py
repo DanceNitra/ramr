@@ -13,17 +13,17 @@ detector is safe (FP=0). Any toggle is a false-positive (a coexisting record sil
 Control: TRUE value-updates ("config timeout is 5" -> "...is 12") MUST still supersede the stale one, or the fix
 has broken FORGET-PRECISION (run ramr_forget_precision.py as the paired regression gate).
 
-CLOUD-FREE: pure in-memory mnemo, lexical only (no embedder, no LLM). Reproducible (fixed inputs).
+CLOUD-FREE: pure in-memory inspeximus, lexical only (no embedder, no LLM). Reproducible (fixed inputs).
 """
 import os, sys, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mnemo.mnemo import Mnemo, _value_clash
+from inspeximus.core import Inspeximus, _value_clash
 
 def active(m):
     return [r["text"] for r in m.items if r["status"] == "active"]
 
 def enumerated_fp(n=6):
-    m = Mnemo(path=None, embed=None)
+    m = Inspeximus(path=None, embed=None)
     for i in range(1, n + 1):
         m.remember(f"step {i} takes {3 + 2 * i} min", tags=["proc"], value=2)
     before = len(active(m))
@@ -33,7 +33,7 @@ def enumerated_fp(n=6):
     return {"n": before, "survived": len(survived), "false_positive_rate": fp}
 
 def true_update_intact():
-    m = Mnemo(path=None, embed=None)
+    m = Inspeximus(path=None, embed=None)
     m.remember("config alpha timeout is 5", tags=["cfg"], value=2)
     m.remember("config alpha timeout is 12", tags=["cfg"], value=2)
     m.consolidate(keep=50)
