@@ -10,5 +10,5 @@
     "mem0:echo":      {"resurrection_rate": 0.00, "note": "defends"},
     "graphiti:echo":  {"resurrection_rate": 0.00, "note": "defends"}
   },
-  "reading": "Value-obscuring revert is a capability gap: only inspeximus exposes a channel to undo a correction on an unnamed command, and the inspeximus/mem0 CIs do not overlap. Echo resurrection is a tie. The revert gap is judge-independent because the competitors structurally lack the operation; the judge model only shifts inspeximus's absolute rate."
+  "reading": "Value-obscuring revert is a capability gap: among the systems tested here, only inspeximus exposes a first-class channel to undo a correction on an unnamed command, and the inspeximus/mem0 CIs do not overlap. Echo resurrection is a tie. The revert gap is judge-independent because mem0 and Graphiti structurally lack the operation; the judge model only shifts inspeximus's absolute rate. (Revert is rare, not unique: Letta ships an engine-level checkpoint-undo, not tested here.)"
 }
