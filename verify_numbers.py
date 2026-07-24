@@ -18,6 +18,25 @@ def line(metric, headline, source, status, note=""):
 if __name__ == "__main__":
     print("=== RAMR NUMBER VERIFICATION (recomputed from source JSON) ===\n", flush=True)
 
+    pf = load("preflight_result.json")
+    if pf:
+        # recompute the parity ratio from the persisted per-arm budgets rather than trusting the stored
+        # verdict, and confirm the refusal/pass pair still holds on the frozen dataset
+        for label in ("unequal", "matched"):
+            r = pf[label]
+            b = r["budgets"]
+            ratio = max(b.values()) / min(b.values())
+            g0 = next(g for g in r["gates"] if g["gate"] == "G0_budget_parity")
+            want_fail = (label == "unequal")
+            ok = (g0["status"] == "FAIL") == want_fail and (ratio > 1.25) == want_fail
+            line(f"PREFLIGHT G0 ({label})", f"{ratio:.2f}x -> {g0['status']}",
+                 f"preflight_result.json n={r['n_probes']}", "VERIFIED" if ok else "UNBACKED")
+        ceil = pf["matched"]["ceilings"]
+        line("PREFLIGHT evidence ceiling", f"{min(ceil.values()):.3f}",
+             f"preflight_result.json n={pf['matched']['n_probes']}",
+             "VERIFIED" if min(ceil.values()) == 1.0 else "UNBACKED",
+             "gold facts are verbatim in both arms" if min(ceil.values()) == 1.0 else "routing bug?")
+
     v0 = load("ramr_v0_result.json")
     if v0:
         a = v0["acc"]

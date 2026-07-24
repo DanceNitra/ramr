@@ -49,6 +49,62 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 
 ---
 
+## Preflight — was the comparison even admissible? (`ramr_preflight.py`)
+
+A metric only means something if the arms were comparing the same thing. RAMR ships the check it asks of
+itself, as a zero-dependency module you can point at **your own** comparison:
+
+```python
+from ramr_preflight import Arm, Probe, audit
+
+report = audit([Arm("mine",   retrieve_mine,   liveness=0.87),
+                Arm("theirs", retrieve_theirs, liveness=0.91)], probes)
+print(report.render())     # paste this next to your accuracy table
+assert report.ok           # or refuse to report the comparison
+```
+
+| gate | layer it names | the failure it exists for |
+|---|---|---|
+| **G0** budget parity | experiment design | a memory arm at `k=20` (1323 chars) against session-level BM25 (11941) — a measured **9.03x** gap. BM25 appeared to win; matched (11916 vs 11941, 1.00x), accuracy went 0.283 → 0.593 and the ranking flipped |
+| **G1** retrieval | retrieval | the gold evidence was absent from the retrieved context on **96.5%** of probes. Per probe it is a gate; aggregated it is the **recall ceiling** reported *beside* accuracy, never folded into it |
+| **G2** liveness | store / answerer | a baseline scored **0.000** twice from our own truncation bug, with clean logs. A missing positive control is a **failure here, not a skip** |
+| **G3** parameter efficacy | harness / API binding | `limit=` passed to an API wanting `top_k=`, silently swallowed. Asserting the knob *changed behaviour* is the general defence, and it does not care what the parameter is called |
+
+The gates stay separate so an abort **names the dead layer** — folded into one boolean you get "something
+died" with the debugging still ahead. That design point, and G3 itself, came from
+[u/jacksonxly](https://www.reddit.com/user/jacksonxly/) in a public thread, as did splitting G1 into a
+gate plus a separately-reported ceiling.
+
+RAMR's own headline arms (FTS5/BM25 keyword, dense vector, inspeximus) retrieve top-1 from an identical
+candidate set, so their budgets are equal by construction and G0 passes trivially. Running it anyway is
+the point: the convention only means something if we hold our own numbers to it.
+
+**Reproducible from this repo.** `python ramr_preflight.py --demo` runs the gates over the frozen
+dataset with two arms answering the same 300 chains — one handed the gold facts, the other the gold facts
+plus the whole distractor pool — and persists `preflight_result.json`:
+
+```
+unequal:  G0 = 20.67x (wide_pool 2139 vs narrow_facts 103 chars)  FAIL  ->  DO NOT report accuracy
+matched:  G0 =  1.00x                                             PASS  ->  ALL GATES PASS
+```
+
+Both arms carry an evidence ceiling of 1.000 (300/300), which is how the demo caught a bug in itself:
+routing probes by question text collapsed 81 collisions (the dataset has 300 chains but only 89 distinct
+questions) and handed probes another chain's facts. The ceiling read 0.31 instead of 1.0 and gave it away.
+Routing is by chain id now, and the note stays in the source — a demo quietly carrying the bug it warns
+about would be worth nothing.
+
+The 9.03x / 96.5% / 0.283 → 0.593 figures above come from an **external** run (an agent-memory corpus not
+shipped here), traceable to that run's persisted `retrieval_coverage.json` and `pilot_summary_*.json`.
+They are not reproducible from this repository; the `--demo` numbers are.
+
+`python ramr_preflight.py --selftest` runs every gate against the real failure it exists for — including a
+callee that takes `**kwargs` and ignores them, called with the wrong name (`k=1 -> 5, k=50 -> 5`, caught)
+— and asserts an empty denominator is a failure, so a probe set with no gold evidence can never read as a
+pass. A gate that cannot fail is a demonstration, not a test.
+
+---
+
 ## Cross-system integrity + erasure (run against real stores)
 
 The 11 metrics above are the **synthetic, contamination-resistant** core. The [`integrity/`](integrity/) module
@@ -353,6 +409,9 @@ the same route.
 - `ramr_outcome_ranked.py`, `ramr_external_baseline.py`, `ramr_real_systems_baseline.py`, `ramr_factret.py`,
   `ramr_factret_claude.py`, `ramr_forget_precision.py` — memory-side metrics + baselines
 - `ramr_scale_chainfragility.py`, `ramr_v2c_zoo.py` — scale + cross-family runners
+- `ramr_preflight.py` / `preflight_result.json` — the four admissibility gates (budget parity,
+  retrieval, liveness, parameter efficacy); `--demo` reproduces a refusal on the frozen dataset,
+  `--selftest` proves each gate can still fail
 - `verify_numbers.py` / `VERIFIED_NUMBERS.md` — number-verification audit + ledger
 
 ## What we do NOT claim

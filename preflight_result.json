@@ -1,0 +1,149 @@
+{
+ "ramr_preflight": "0.5.0",
+ "dataset": "data/ramr_chains_v0.1.0.jsonl",
+ "n_probes": 300,
+ "unequal": {
+  "ramr_preflight": "0.5.0",
+  "ok": false,
+  "n_probes": 300,
+  "budget_unit": "chars",
+  "budgets": {
+   "narrow_facts": 103.48666666666666,
+   "wide_pool": 2139.0666666666666
+  },
+  "ceilings": {
+   "narrow_facts": 1.0,
+   "wide_pool": 1.0
+  },
+  "gates": [
+   {
+    "gate": "G0_budget_parity",
+    "layer": "experiment design",
+    "status": "FAIL",
+    "value": "20.67x (wide_pool 2139 vs narrow_facts 103 chars)",
+    "requirement": "<= 1.25x",
+    "detail": "Arms were handed different amounts of context, so any accuracy difference is confounded with budget. Match the budget and re-run - the ranking can flip."
+   },
+   {
+    "gate": "G1_retrieval",
+    "layer": "retrieval (narrow_facts)",
+    "status": "PASS",
+    "value": "1.0 (300/300)",
+    "requirement": ">= 0.30",
+    "detail": "This is also the recall CEILING for this arm. Report it beside accuracy, never folded into it: you cannot out-rank evidence that was never retrieved."
+   },
+   {
+    "gate": "G1_retrieval",
+    "layer": "retrieval (wide_pool)",
+    "status": "PASS",
+    "value": "1.0 (300/300)",
+    "requirement": ">= 0.30",
+    "detail": "This is also the recall CEILING for this arm. Report it beside accuracy, never folded into it: you cannot out-rank evidence that was never retrieved."
+   },
+   {
+    "gate": "G2_liveness",
+    "layer": "store/answerer (narrow_facts)",
+    "status": "PASS",
+    "value": 0.9,
+    "requirement": ">= 0.50",
+    "detail": "Below threshold this arm is a DEAD HARNESS, not a clean loss. Do not report its number as a result."
+   },
+   {
+    "gate": "G2_liveness",
+    "layer": "store/answerer (wide_pool)",
+    "status": "PASS",
+    "value": 0.9,
+    "requirement": ">= 0.50",
+    "detail": "Below threshold this arm is a DEAD HARNESS, not a clean loss. Do not report its number as a result."
+   },
+   {
+    "gate": "G3_param_efficacy",
+    "layer": "harness/API binding (narrow_facts)",
+    "status": "PASS",
+    "value": "k=1 -> 1, k=50 -> 3",
+    "requirement": "retrieved(high) > retrieved(low)",
+    "detail": "The depth parameter does not change what comes back, so it is being silently swallowed and every number from this arm is meaningless."
+   },
+   {
+    "gate": "G3_param_efficacy",
+    "layer": "harness/API binding (wide_pool)",
+    "status": "SKIPPED",
+    "value": "no depth knob",
+    "requirement": "retrieved(high) > retrieved(low)",
+    "detail": "Arm declared has_k=False. Its budget is fixed by construction."
+   }
+  ]
+ },
+ "matched": {
+  "ramr_preflight": "0.5.0",
+  "ok": true,
+  "n_probes": 300,
+  "budget_unit": "chars",
+  "budgets": {
+   "narrow_facts": 2139.0666666666666,
+   "wide_pool": 2139.0666666666666
+  },
+  "ceilings": {
+   "narrow_facts": 1.0,
+   "wide_pool": 1.0
+  },
+  "gates": [
+   {
+    "gate": "G0_budget_parity",
+    "layer": "experiment design",
+    "status": "PASS",
+    "value": "1.00x (narrow_facts 2139 vs narrow_facts 2139 chars)",
+    "requirement": "<= 1.25x",
+    "detail": "Arms were handed different amounts of context, so any accuracy difference is confounded with budget. Match the budget and re-run - the ranking can flip."
+   },
+   {
+    "gate": "G1_retrieval",
+    "layer": "retrieval (narrow_facts)",
+    "status": "PASS",
+    "value": "1.0 (300/300)",
+    "requirement": ">= 0.30",
+    "detail": "This is also the recall CEILING for this arm. Report it beside accuracy, never folded into it: you cannot out-rank evidence that was never retrieved."
+   },
+   {
+    "gate": "G1_retrieval",
+    "layer": "retrieval (wide_pool)",
+    "status": "PASS",
+    "value": "1.0 (300/300)",
+    "requirement": ">= 0.30",
+    "detail": "This is also the recall CEILING for this arm. Report it beside accuracy, never folded into it: you cannot out-rank evidence that was never retrieved."
+   },
+   {
+    "gate": "G2_liveness",
+    "layer": "store/answerer (narrow_facts)",
+    "status": "PASS",
+    "value": 0.9,
+    "requirement": ">= 0.50",
+    "detail": "Below threshold this arm is a DEAD HARNESS, not a clean loss. Do not report its number as a result."
+   },
+   {
+    "gate": "G2_liveness",
+    "layer": "store/answerer (wide_pool)",
+    "status": "PASS",
+    "value": 0.9,
+    "requirement": ">= 0.50",
+    "detail": "Below threshold this arm is a DEAD HARNESS, not a clean loss. Do not report its number as a result."
+   },
+   {
+    "gate": "G3_param_efficacy",
+    "layer": "harness/API binding (narrow_facts)",
+    "status": "SKIPPED",
+    "value": "no depth knob",
+    "requirement": "retrieved(high) > retrieved(low)",
+    "detail": "Arm declared has_k=False. Its budget is fixed by construction."
+   },
+   {
+    "gate": "G3_param_efficacy",
+    "layer": "harness/API binding (wide_pool)",
+    "status": "SKIPPED",
+    "value": "no depth knob",
+    "requirement": "retrieved(high) > retrieved(low)",
+    "detail": "Arm declared has_k=False. Its budget is fixed by construction."
+   }
+  ]
+ }
+}
