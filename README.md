@@ -264,6 +264,16 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.5.0** — **PREFLIGHT** (`ramr_preflight.py`): four admissibility gates run before an answerer costs
+  anything — budget parity, retrieval (evidence-in-context), liveness, parameter efficacy — each aborting
+  with the *layer that died* rather than one unhelpful boolean. Motivated by a comparison where a memory arm
+  at k=20 (1323 chars) faced session-level BM25 (11941), a 9.03x gap; matched (1.00x), accuracy went
+  0.283 → 0.593 and the ranking flipped. `--demo` reproduces a refusal on the frozen dataset (20.67x FAIL /
+  1.00x PASS, ceiling 1.000, n=300) into `preflight_result.json`, and `verify_numbers.py` recomputes the
+  parity ratio from the persisted per-arm budgets. `--selftest` asserts every gate can still fail. The
+  separate-gates design and the parameter-efficacy gate came from **u/jacksonxly** in a public thread.
+  Not a metric — a check on whether a comparison was admissible at all.
+
 - **v0.4.3** — **INTEGRITY-CONDITIONED RECALL** metric (`ramr_integrity_recall.py`): after a supersession /
   revert / poison, does recall return the correct current value? On this constructed scenario, `revert` is
   the unique win (inspeximus 1.00 vs cosine-recency 0.00, naive 0.55 — recency has no revert operation);
