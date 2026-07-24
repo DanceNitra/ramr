@@ -21,7 +21,8 @@ abstract: >-
   Meter probe, and a four-gate preflight that refuses inadmissible comparisons.
 type: software
 authors:
-  - name: "Agora"
+  - family-names: "Drahoš"
+    given-names: "Rastislav"
     website: "https://github.com/DanceNitra"
 version: "0.5.0"
 date-released: "2026-07-25"
