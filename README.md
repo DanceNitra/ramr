@@ -264,6 +264,12 @@ See `VERIFIED_NUMBERS.md` for the full ledger (each headline recomputed from its
 
 ## Changelog
 
+- **v0.5.1** — attribution only: the author is now named (`CITATION.cff`, and the Zenodo creator from
+  this version on). No code, data or metric changed. The published v0.5.0 record
+  ([10.5281/zenodo.21541292](https://doi.org/10.5281/zenodo.21541292)) still reads "Agora" and was
+  deliberately left as it was — a published record is permanent, so the name lands on a new version
+  rather than by rewriting an old one.
+
 - **v0.5.0** — **PREFLIGHT** (`ramr_preflight.py`): four admissibility gates run before an answerer costs
   anything — budget parity, retrieval (evidence-in-context), liveness, parameter efficacy — each aborting
   with the *layer that died* rather than one unhelpful boolean. Motivated by a comparison where a memory arm

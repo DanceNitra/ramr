@@ -7,6 +7,9 @@ identifiers:
     value: 10.5281/zenodo.20818291
     description: "Zenodo concept DOI (always resolves to the latest version)"
   - type: doi
+    value: 10.5281/zenodo.21541292
+    description: "Zenodo archive (v0.5.0)"
+  - type: doi
     value: 10.5281/zenodo.20996166
     description: "Zenodo archive (v0.4.1)"
   - type: doi
@@ -24,7 +27,7 @@ authors:
   - family-names: "Drahoš"
     given-names: "Rastislav"
     website: "https://github.com/DanceNitra"
-version: "0.5.0"
+version: "0.5.1"
 date-released: "2026-07-25"
 license: MIT
 url: "https://github.com/DanceNitra/ramr"
