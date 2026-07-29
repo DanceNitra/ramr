@@ -1,0 +1,79 @@
+{
+  "generated": "2026-07-29T07:07:18Z",
+  "n": 20,
+  "judge": "none - deterministic",
+  "results": {
+    "inspeximus 1.86.0:over_erasure": {
+      "n": 20,
+      "success": 0,
+      "rate": 0.0,
+      "ci95": [
+        0.0,
+        0.161
+      ],
+      "verdicts": {
+        "collateral": 20
+      }
+    },
+    "inspeximus 1.86.0:under_erasure": {
+      "n": 20,
+      "success": 0,
+      "rate": 0.0,
+      "ci95": [
+        0.0,
+        0.161
+      ],
+      "verdicts": {
+        "residue": 20
+      }
+    },
+    "inspeximus 1.87.0:over_erasure": {
+      "n": 20,
+      "success": 20,
+      "rate": 1.0,
+      "ci95": [
+        0.839,
+        1.0
+      ],
+      "verdicts": {
+        "clean": 20
+      }
+    },
+    "inspeximus 1.87.0:under_erasure": {
+      "n": 20,
+      "success": 0,
+      "rate": 0.0,
+      "ci95": [
+        0.0,
+        0.161
+      ],
+      "verdicts": {
+        "residue": 20
+      }
+    },
+    "inspeximus 1.88.0:over_erasure": {
+      "n": 20,
+      "success": 20,
+      "rate": 1.0,
+      "ci95": [
+        0.839,
+        1.0
+      ],
+      "verdicts": {
+        "clean": 20
+      }
+    },
+    "inspeximus 1.88.0:under_erasure": {
+      "n": 20,
+      "success": 20,
+      "rate": 1.0,
+      "ci95": [
+        0.839,
+        1.0
+      ],
+      "verdicts": {
+        "clean": 20
+      }
+    }
+  }
+}
