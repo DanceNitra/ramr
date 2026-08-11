@@ -1,0 +1,31 @@
+{
+  "k": 8,
+  "traces": 300,
+  "planted_surfaced": 300,
+  "rows": [
+    {
+      "scorer": "null (flags nothing)",
+      "detection_rate": 0.0,
+      "false_positive_rate": 0.0,
+      "planted_items": 300,
+      "clean_items": 2100,
+      "skipped_traces": 0
+    },
+    {
+      "scorer": "oracle (reads the label)",
+      "detection_rate": 1.0,
+      "false_positive_rate": 0.0,
+      "planted_items": 300,
+      "clean_items": 2100,
+      "skipped_traces": 0
+    },
+    {
+      "scorer": "contradiction twin (real)",
+      "detection_rate": 1.0,
+      "false_positive_rate": 0.1657142857142857,
+      "planted_items": 300,
+      "clean_items": 2100,
+      "skipped_traces": 0
+    }
+  ]
+}
