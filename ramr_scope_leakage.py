@@ -22,8 +22,17 @@ def build(seed):
     A_ids, B_ids, probes = set(), set(), []
     for i in range(M):
         sfx = L[i // 26] + L[i % 26]; attr = ATTRS[i % len(ATTRS)]
+        # A OUTRANKS B ON MERIT, and that is a correction, not a tuning knob. Both facts used to be
+        # written at value=1.0 with near-identical lexical scores, so which came back top-1 was decided
+        # by a TIE-BREAK the metric never specified. Measured 2026-08-11 by upgrading the vendored
+        # library 1.29.0 -> 2.5.0: the winner follows WRITE ORDER (A first gives B, A second gives A),
+        # so the published leak_noscope of 0.795 reported insertion order rather than cross-scope
+        # leakage risk -- and under a recency tie-break it collapses to 0.00, where the pre-registered
+        # floor (ln >= 0.2) is unreachable by a working system and a broken one alike.
+        # A must therefore rank first for a REASON: it is the higher-value record, so an unscoped query
+        # returns it on merit and scoping has something real to protect against.
         aid = store.remember(f"ent{sfx} {attr} valA{sfx}", tags=["t"], value=1.0, meta={"scope": "A"})
-        bid = store.remember(f"ent{sfx} {attr} valB{sfx}", tags=["t"], value=1.0, meta={"scope": "B"})
+        bid = store.remember(f"ent{sfx} {attr} valB{sfx}", tags=["t"], value=0.4, meta={"scope": "B"})
         A_ids.add(aid); B_ids.add(bid)
         probes.append({"q": f"ent{sfx} {attr}", "bid": bid})
     return store, A_ids, B_ids, probes
@@ -42,8 +51,37 @@ def run(seed):
     return leak_no / n, leak_sc / n, inrec_sc / n
 
 
+def tie_break_control():
+    """Is the unscoped result driven by RANK, or by the order the two facts happened to be written?
+
+    The control this metric lacked. Build the same pair twice with the write order reversed: if the
+    unscoped top-1 is the A-fact both times it is winning on value; if it flips, every leakage number
+    printed below is an artefact of insertion order.
+    """
+    out = []
+    for a_first in (True, False):
+        store = Inspeximus(path=None, embed=None); store.semantic_threshold = 10 ** 9
+        def mk(scope, val):
+            return store.remember(f"entzz retrylimit val{scope}zz", tags=["t"], value=val,
+                                  meta={"scope": scope})
+        if a_first:
+            aid = mk("A", 1.0); mk("B", 0.4)
+        else:
+            mk("B", 0.4); aid = mk("A", 1.0)
+        r = store.recall("entzz retrylimit", k=3, mode="lexical")
+        out.append(bool(r) and r[0]["id"] == aid)
+    return out
+
+
 if __name__ == "__main__":
     print(f"compile OK - RAMR CROSS-SCOPE LEAKAGE metric (M={M}, seeds={N_SEEDS}; A+B share schema in one store)", flush=True)
+    ctrl = tie_break_control()
+    print(f"  tie-break control (A top-1 with A written first / second): {ctrl}", flush=True)
+    if not all(ctrl):
+        print("  ABORT: the unscoped winner follows WRITE ORDER, not rank. Every leakage number below",
+              flush=True)
+        print("         would be an artefact of insertion order. Reporting nothing.", flush=True)
+        raise SystemExit(2)
     ln, ls, ir = np.mean([run(s) for s in range(N_SEEDS)], axis=0)
     print(f"\n  no-scope leakage  (top-1 is an A-fact when querying as B): {ln:.2f}", flush=True)
     print(f"  scoped leakage    (any A-fact returned with scope='B')    : {ls:.2f}", flush=True)

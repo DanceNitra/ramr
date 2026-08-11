@@ -16,7 +16,12 @@ from inspeximus import Inspeximus
 
 M = int(os.getenv("BE_M", "24"))
 T = int(os.getenv("BE_T", "8"))
-N_SEEDS = int(os.getenv("BE_SEEDS", "3"))
+#: 3 was too few for the differences this sweep REPORTS. Measured 2026-08-11: the per-seed spread of
+#: a single cell is sd 0.045-0.116, so at n=3 the standard error of each published mean is +-0.03 to
+#: +-0.07 -- wider than most of the mode-to-mode gaps the verdict turns on, and wide enough that a
+#: library upgrade appeared to move 25 fields when it had moved nothing. The numbers were quoted to
+#: sixteen decimal places throughout.
+N_SEEDS = int(os.getenv("BE_SEEDS", "12"))
 P_LEVELS = [0.2, 0.4, 0.6, 0.8, 1.0]
 D_LEVELS = [1, 3]
 L = "abcdefghijklmnopqrstuvwxyz"

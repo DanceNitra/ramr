@@ -1,6 +1,50 @@
-"""inspeximus — agent memory core (zero-dependency), vendored for reproducibility.
+"""inspeximus — a zero-dependency memory layer and MCP server for AI agents.
 
-This is a vendored copy of the inspeximus library core (v1.29.0), matching the maintained package
-`pip install inspeximus`, so the RAMR numbers in this repo reproduce against exactly this code.
+Public API (stable as of 1.0.0). Submodules for the governance/erasure tooling:
+  - inspeximus.deletion_manifest : DeletionManifest, ErasureTarget   (cross-store erasure record)
+  - inspeximus.erasure_auditor   : ErasureAuditor, StoreProbe, ...    ('content still reconstructible?' audit)
+  - inspeximus.mcp_server         : the MCP stdio server (console script: inspeximus-mcp)
 """
-from .core import Inspeximus  # noqa: F401
+from .core import (
+    AmbiguousSubject,  # noqa: F401
+    Inspeximus,
+    new_receipt_keypair,
+    new_source_keypair,
+    sign_revert,
+    sign_support,
+    sign_erasure,
+    erasure_challenge,
+    verify_erasure_certificate,
+    attest,
+    derive_key,
+    regex_extractor,
+    make_llm_extractor,
+    default_distiller,
+    is_universal_executor,
+    detect_pii,
+    redact_pii,
+    new_encryption_key,
+    __version__,
+)
+
+__all__ = [
+    "Inspeximus",
+    "AmbiguousSubject",
+    "new_receipt_keypair",
+    "new_source_keypair",
+    "sign_revert",
+    "sign_support",
+    "sign_erasure",
+    "erasure_challenge",
+    "verify_erasure_certificate",
+    "attest",
+    "derive_key",
+    "regex_extractor",
+    "make_llm_extractor",
+    "default_distiller",
+    "is_universal_executor",
+    "detect_pii",
+    "redact_pii",
+    "new_encryption_key",
+    "__version__",
+]
