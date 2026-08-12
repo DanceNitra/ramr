@@ -1,0 +1,5 @@
+# LF in the repo AND in the working tree, so a recorded sha256 verifies on any OS.
+# This repo has already quoted two hashes computed on different bases, and its one
+# manifest pin never matched the file it pinned.
+*.jsonl text eol=lf
+*.json text eol=lf

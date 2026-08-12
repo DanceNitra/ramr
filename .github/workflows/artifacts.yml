@@ -23,6 +23,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Does every file we ship match its recorded hash, and is every published file pinned at all?
+      # The README advertises a "sha256-pinned manifest"; until 2026-08-12 it pinned one file, with a
+      # hash matching no committed version of it, and nothing ever checked.
+      - name: manifest pins hold
+        run: python verify_manifest.py
+
       # Do the files we ship agree with each other? Reads the artifacts on disk, NOT a fresh
       # generation -- a fresh run rebuilds both sides from one generation and they agree by
       # construction, which is exactly how the defect stayed invisible.

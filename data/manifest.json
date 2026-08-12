@@ -6,8 +6,27 @@
   "hops": 3,
   "files": {
     "ramr_chains_v0.1.0.jsonl": {
+      "path": "data/ramr_chains_v0.1.0.jsonl",
       "n": 300,
-      "sha256": "00f15876806726908d41f6770fe9ea401ec9a99a8245bd1d3545a983d5ca68d0"
+      "sha256": "036983181534ed7231c451986d1a4aadc3a45ffdff9f497b0f24569975f15a59"
+    },
+    "ramr_traces_v0.1.jsonl": {
+      "path": "ramr_traces_v0.1.jsonl",
+      "n": 300,
+      "sha256": "99b5fb61f38f85db85420a50f95aa5c2f4685450910b8b5ebe87b2f662b20947",
+      "note": "superseded by v0.2; carries the kind label and generator order. Kept as the negative control that proves the v0.2 fixes work."
+    },
+    "ramr_traces_v0.2_blind.jsonl": {
+      "path": "ramr_traces_v0.2_blind.jsonl",
+      "n": 300,
+      "sha256": "1155c1161d93916d98b57f1474359e54da76bb63d389db43fafb75fbff53da21",
+      "note": "what a scorer consumes: no labels, order shuffled with seed 20260812."
+    },
+    "ramr_traces_v0.2_labels.jsonl": {
+      "path": "ramr_traces_v0.2_labels.jsonl",
+      "n": 300,
+      "sha256": "ecb28e9ab040ccb070db982ac5adaaff3f9eb20a3d5049bf12f6c7ad99838379",
+      "note": "ground truth for v0.2, keyed by chain_id."
     }
   },
   "schema": {
@@ -27,5 +46,6 @@
   "memory_families_external": {
     "FACT-RETENTION": "ramr_factret.py (deterministic gen_facts seeds)",
     "OUTCOME-RANKED-RECALL": "ramr_outcome_ranked.py (embed-once fixed pool, seed 99)"
-  }
+  },
+  "hash_basis": "sha256 of the file bytes as stored in git. .gitattributes pins *.jsonl and *.json to eol=lf so the working copy matches the blob on every platform -- this manifest previously carried one hash that matched no committed version of its file."
 }
