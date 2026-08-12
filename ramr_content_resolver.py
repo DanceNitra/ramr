@@ -76,19 +76,29 @@ def ask(base, key, model, query, context, a, b, timeout=120):
     req = urllib.request.Request(base.rstrip("/") + "/chat/completions", data=body,
                                  headers={"Authorization": "Bearer " + key,
                                           "Content-Type": "application/json"})
+    # A FAILURE MUST SAY WHICH FAILURE IT IS. The first version swallowed every exception and returned
+    # None, so a run that was 91% rate-limited reported "245 empty/failed" and a 62.5% accuracy over
+    # the 24 survivors -- a survivorship-biased number that looked like a result. Empty content and a
+    # refused connection are different defects with different fixes, and a harness that cannot tell
+    # them apart reports the wrong one.
+    last = "unknown"
     for attempt in range(3):
         try:
             r = urllib.request.urlopen(req, timeout=timeout)
             txt = (json.loads(r.read())["choices"][0]["message"]["content"] or "").strip().upper()
             for ch in txt:
                 if ch in ("A", "B"):
-                    return ch
-            return None
-        except Exception:
-            if attempt == 2:
-                return None
-            time.sleep(2 + attempt * 3)
-    return None
+                    return ch, None
+            return None, "empty-or-unparseable"
+        except urllib.error.HTTPError as e:
+            last = "http-%s" % e.code
+            if e.code not in (429, 500, 502, 503, 504):
+                return None, last
+        except Exception as e:
+            last = type(e).__name__
+        if attempt < 2:
+            time.sleep(3 + attempt * 5)
+    return None, last
 
 
 def main(argv=None):
@@ -132,19 +142,22 @@ def main(argv=None):
 
     def run(job):
         t, x, y = job
-        ans = ask(a.base, key, a.model, t.get("query") or "", t["retrieved"], x, y)
+        ans, why = ask(a.base, key, a.model, t.get("query") or "", t["retrieved"], x, y)
         done[0] += 1
         if done[0] % 25 == 0:
             print("  %d/%d  %.0fs elapsed" % (done[0], len(work), time.time() - t0), flush=True)
-        return t, x, y, ans
+        return t, x, y, ans, why
 
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
         results = list(ex.map(run, work))
 
+    from collections import Counter
+    reasons = Counter()
     fired = right = empty = 0
-    for t, x, y, ans in results:
+    for t, x, y, ans, why in results:
         if ans is None:
             empty += 1
+            reasons[why or "unknown"] += 1
             continue
         fired += 1
         chosen = x if ans == "A" else y
@@ -153,6 +166,8 @@ def main(argv=None):
     print("\ncontent-only resolution, %s" % a.model)
     print("  answered            : %d of %d  (%d empty/failed)" % (fired, len(work), empty))
     print("  correct             : %d of %d = %.1f%%" % (right, fired, 100.0 * right / fired if fired else 0))
+    if reasons:
+        print("  failure reasons     : %s" % dict(reasons))
     print("  chance for a binary : 50.0%%")
     print("  coverage of corpus  : %d of %d = %.1f%%" % (len(work), len(traces), 100.0 * len(work) / len(traces)))
     print("  elapsed             : %.0fs" % (time.time() - t0))
@@ -162,7 +177,7 @@ def main(argv=None):
     if a.json_out:
         io.open(a.json_out, "w", encoding="utf-8", newline="\n").write(json.dumps({
             "version": a.version, "model": a.model, "traces": len(traces), "pairs": len(work),
-            "answered": fired, "correct": right, "empty": empty,
+            "answered": fired, "correct": right, "empty": empty, "failures": dict(reasons),
             "accuracy": (right / fired) if fired else None}, indent=2) + "\n")
         print("wrote %s" % a.json_out)
     return 0
