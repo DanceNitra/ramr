@@ -64,3 +64,9 @@ jobs:
       # the echo cue introduced a brighter one, and every other probe read "at chance" on it.
       - name: memaudit floor on RAMR v0.5
         run: python memaudit.py --adapter ramr --blind ramr_traces_v0.5_blind.jsonl --labels ramr_traces_v0.5_labels.jsonl
+
+      # The scoring runner's own controls: a null that flags nothing must read 0.00/0.00 and an oracle
+      # that reads the label must reach 1.00/0.00. If either moves, every score it reports is about the
+      # harness rather than the detector.
+      - name: scoring harness controls (v0.5)
+        run: python ramr_score_traces.py --version 0.5

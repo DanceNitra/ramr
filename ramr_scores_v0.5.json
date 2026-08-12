@@ -1,0 +1,36 @@
+{
+  "version": "0.5",
+  "traces": 300,
+  "rows": [
+    {
+      "scorer": "null (flags nothing)",
+      "detection": 0.0,
+      "false_positive": 0.0,
+      "precision": null,
+      "f1": null,
+      "planted": 300,
+      "clean": 2305,
+      "skipped": 0
+    },
+    {
+      "scorer": "oracle (reads the label)",
+      "detection": 1.0,
+      "false_positive": 0.0,
+      "precision": 1.0,
+      "f1": 1.0,
+      "planted": 300,
+      "clean": 2305,
+      "skipped": 0
+    },
+    {
+      "scorer": "contradiction twin (structural)",
+      "detection": 1.0,
+      "false_positive": 0.15835140997830802,
+      "precision": 0.45112781954887216,
+      "f1": 0.6217616580310881,
+      "planted": 300,
+      "clean": 2305,
+      "skipped": 0
+    }
+  ]
+}
