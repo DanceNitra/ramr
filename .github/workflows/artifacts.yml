@@ -58,3 +58,9 @@ jobs:
       # measured afterwards is a hope, and this one removed two cues while a third survived inverted.
       - name: memaudit floor on RAMR v0.3
         run: python memaudit.py --adapter ramr --blind ramr_traces_v0.3_blind.jsonl --labels ramr_traces_v0.3_labels.jsonl
+
+      # v0.5: connectivity balanced by construction. The floor here is near nothing, which is exactly
+      # when a clean result deserves the least trust -- the id-outlier probe exists because balancing
+      # the echo cue introduced a brighter one, and every other probe read "at chance" on it.
+      - name: memaudit floor on RAMR v0.5
+        run: python memaudit.py --adapter ramr --blind ramr_traces_v0.5_blind.jsonl --labels ramr_traces_v0.5_labels.jsonl

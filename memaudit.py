@@ -155,6 +155,45 @@ def probe_length(t):
     return t.target if la > lb else t.decoy
 
 
+def _shape(rid):
+    """A coarse signature of an id: length plus which character classes appear."""
+    s = str(rid or "")
+    return (len(s), any(c.isdigit() for c in s), any(c.isalpha() for c in s),
+            any(not c.isalnum() for c in s))
+
+
+def probe_id_outlier(t):
+    """A record whose ID does not look like the others, and what it points at.
+
+    WRITTEN AFTER DOING IT. Balancing the echo cue meant adding a corroborating fact for the stale
+    value, and the added record was given the id "sib-<chain_id>" while every other id was 10 hex
+    characters. A scorer reading nothing but the id format could find that record, and its SUBJECT is
+    the stale value -- 205 of 300 traces solved outright by a cue introduced while removing one. Every
+    other probe here reported "at chance" on that corpus, because none of them looked at the ids.
+
+    So: find the minority id shape, take that record's first token, and return the candidate whose
+    final token matches it. That is the exploit, generalised.
+    """
+    shapes = {}
+    for i in t.items:
+        shapes.setdefault(_shape(i.get("id")), []).append(i)
+    if len(shapes) < 2:
+        return None
+    minority = min(shapes.values(), key=len)
+    if len(minority) != 1:
+        return None
+    subject = (minority[0].get("text") or "").split()
+    if not subject:
+        return None
+    head = subject[0].rstrip(".")
+    for i in t.items:
+        if i is minority[0]:
+            continue
+        if _last_token(i.get("text")) == head:
+            return i.get("id")
+    return None
+
+
 def probe_query_overlap(t):
     """The candidate sharing the most tokens with the query. The classic lexical shortcut."""
     q = set((t.query or "").lower().rstrip("?").split())
@@ -180,6 +219,7 @@ PROBES_SPEC = [
     ("position:first", probe_position_first, False),
     ("position:pair-order", probe_pair_order, True),
     ("leak:stray-field", probe_stray_field, False),
+    ("leak:id-outlier", probe_id_outlier, False),
     ("content:value-echo", probe_value_echo, True),
     ("content:casing", probe_casing, True),
     ("content:length", probe_length, True),

@@ -39,6 +39,24 @@
       "n": 300,
       "sha256": "92bd3ef8cb2cd84eec756e3eea8d0a65e497cb73cde48f1c7c6d969ea455059f",
       "note": "ground truth for v0.3, keyed by chain_id."
+    },
+    "ramr_chains_v0.2.0.jsonl": {
+      "path": "data/ramr_chains_v0.2.0.jsonl",
+      "n": 300,
+      "sha256": "34323f6c7da0e210075859b68f359293cac63c92be886306ce3fde02a83a41ea",
+      "note": "corpus v0.2.0: v0.1.0 with two sibling facts prepended per chain. Questions, answers, gold facts and drop_index identical to v0.1.0."
+    },
+    "ramr_traces_v0.5_blind.jsonl": {
+      "path": "ramr_traces_v0.5_blind.jsonl",
+      "n": 300,
+      "sha256": "0313f8cc397d8720720f67dc9d3b95b83e09b1a9d4f778b922bbdcd2f85b0bc1",
+      "note": "v0.5: re-cut plus a corroborating fact for the stale value, so connectivity is balanced by construction rather than left to retrieval. Shortcut floor 40.0% over 1.7% of traces."
+    },
+    "ramr_traces_v0.5_labels.jsonl": {
+      "path": "ramr_traces_v0.5_labels.jsonl",
+      "n": 300,
+      "sha256": "c64ba05c07219644c74bef8aa0d5cbaba767d77108428c090739e78b742c0ed8",
+      "note": "ground truth for v0.5, keyed by chain_id."
     }
   },
   "schema": {

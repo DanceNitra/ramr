@@ -40,6 +40,7 @@ whatever floor remains. A re-cut that is not measured is a hope.
     python ramr_traces_v03_recut.py && python memaudit.py --adapter ramr \\
         --blind ramr_traces_v0.3_blind.jsonl --labels ramr_traces_v0.3_labels.jsonl
 """
+import hashlib
 import io
 import json
 import os
@@ -49,8 +50,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ramr_trace_export as X  # noqa: E402
 
-BLIND = "ramr_traces_v0.3_blind.jsonl"
-LABELS = "ramr_traces_v0.3_labels.jsonl"
+VER = os.environ.get("RAMR_TRACE_VER", "0.3")
+BLIND = "ramr_traces_v%s_blind.jsonl" % VER
+LABELS = "ramr_traces_v%s_labels.jsonl" % VER
 SEED = 20260812
 
 
@@ -159,6 +161,10 @@ def stale_variant_balanced(fact, chain):
 
 def main():
     n = int(os.environ.get("TRACES", "300"))
+    corpus = os.environ.get("RAMR_CORPUS")
+    if corpus:
+        X.CORPUS = corpus
+        print("corpus: %s" % corpus)
     chains = X._chains(n)
 
     # Swap ONLY the plant chooser on the shipped export path.
@@ -168,6 +174,41 @@ def main():
         traces = [X.build_trace(c) for c in chains]
     finally:
         X._stale_variant = original
+
+    if os.environ.get("RAMR_INJECT_SIBLING") == "1":
+        # CONNECTIVITY BY CONSTRUCTION, because retrieval will not supply it. Measured on v0.4: 0 of
+        # 300 sibling facts were ever retrieved, while all 3 gold facts were retrieved every time.
+        # Retrieval is lexical on the question and the question names only the person, so the trace is
+        # always the gold chain plus the plant -- and the current value is a link in that chain while
+        # the stale value can never be. The echo cue was therefore never a property of the PLANT; it
+        # was a property of what the question pulls back, and no choice of donor could reach it.
+        #
+        # A real memory store would hold other facts about a superseded value -- that is why it was
+        # written down in the first place -- so a trace containing one is more faithful, not less. The
+        # corroborating fact is added to the trace explicitly and marked as a distractor.
+        injected = 0
+        for t, c in zip(traces, chains):
+            gt = t.get("ground_truth") or {}
+            p = gt.get("planted") or {}
+            if not p.get("stale_text"):
+                continue
+            sv = p["stale_text"].rstrip(".").split()[-1]
+            present = " ".join(i["text"] for i in t["retrieved"]).split()
+            if sv in [w.rstrip(".") for w in present if w.rstrip(".") != sv] or present.count(sv) > 1:
+                continue
+            sib = next((d for d in (c.get("distractor_pool") or []) if _subject(d) == sv), None)
+            if not sib:
+                continue
+            # The id must be INDISTINGUISHABLE from the store's own. The first version used
+            # "sib-<chain_id>", which a scorer reading nothing but the id format could spot -- and the
+            # subject of that record IS the stale value, so it solved 205 of 300 traces outright. A
+            # fix that plants a brighter cue than the one it removes is not a fix. Content-addressed,
+            # so it is also reproducible, which uuid4 ids are not.
+            rid = hashlib.sha256((t["chain_id"] + sib).encode("utf-8")).hexdigest()[:10]
+            t["retrieved"].append({"rank": len(t["retrieved"]), "record_id": rid,
+                                   "text": sib, "kind": "distractor"})
+            injected += 1
+        print("corroborating facts injected for the stale value: %d" % injected)
 
     planted = sum(1 for t in traces if any(i["kind"] == "planted" for i in t["retrieved"]))
     print("chains: %d | traces whose plant surfaced in top-%d: %d" % (len(traces), X.K, planted))

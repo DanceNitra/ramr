@@ -1,0 +1,94 @@
+{
+  "version": "0.1.0",
+  "traces": 300,
+  "probes": [
+    {
+      "probe": "position:first",
+      "fired": 300,
+      "coverage": 1.0,
+      "accuracy": 0.12666666666666668,
+      "null_accuracy": 0.11466666666666667,
+      "lift": 0.01200000000000001,
+      "inverted": false,
+      "real": false
+    },
+    {
+      "probe": "position:pair-order (inverted)",
+      "fired": 300,
+      "coverage": 1.0,
+      "accuracy": 0.5166666666666666,
+      "null_accuracy": 0.4866666666666667,
+      "lift": 0.029999999999999916,
+      "inverted": true,
+      "real": false
+    },
+    {
+      "probe": "leak:stray-field",
+      "fired": 0,
+      "coverage": 0.0,
+      "accuracy": null,
+      "null_accuracy": null,
+      "lift": null,
+      "inverted": false,
+      "real": false
+    },
+    {
+      "probe": "leak:id-outlier",
+      "fired": 5,
+      "coverage": 0.016666666666666666,
+      "accuracy": 0.4,
+      "null_accuracy": 0.04,
+      "lift": 0.36000000000000004,
+      "inverted": false,
+      "real": true
+    },
+    {
+      "probe": "content:value-echo",
+      "fired": 0,
+      "coverage": 0.0,
+      "accuracy": null,
+      "null_accuracy": 0.5370101596516691,
+      "lift": null,
+      "inverted": false,
+      "real": false
+    },
+    {
+      "probe": "content:casing",
+      "fired": 0,
+      "coverage": 0.0,
+      "accuracy": null,
+      "null_accuracy": 0.4728789986091794,
+      "lift": null,
+      "inverted": false,
+      "real": false
+    },
+    {
+      "probe": "content:length (inverted)",
+      "fired": 7,
+      "coverage": 0.023333333333333334,
+      "accuracy": 0.5714285714285714,
+      "null_accuracy": 0.505332239540607,
+      "lift": 0.06609633188796438,
+      "inverted": true,
+      "real": false
+    },
+    {
+      "probe": "content:query-overlap",
+      "fired": 18,
+      "coverage": 0.06,
+      "accuracy": 0.0,
+      "null_accuracy": 0.14444444444444443,
+      "lift": -0.14444444444444443,
+      "inverted": false,
+      "real": false
+    }
+  ],
+  "floor": {
+    "probes_used": [
+      "leak:id-outlier"
+    ],
+    "fired": 5,
+    "coverage": 0.016666666666666666,
+    "accuracy": 0.4
+  }
+}
