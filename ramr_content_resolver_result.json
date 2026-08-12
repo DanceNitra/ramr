@@ -1,0 +1,15 @@
+{
+  "version": "0.5",
+  "model": "deepseek-v4-flash:0731-cloud",
+  "traces": 300,
+  "pairs": 269,
+  "answered": 210,
+  "correct": 138,
+  "empty": 59,
+  "failures": {
+    "empty-or-unparseable": 9,
+    "TimeoutError": 20,
+    "http-429": 30
+  },
+  "accuracy": 0.6571428571428571
+}
