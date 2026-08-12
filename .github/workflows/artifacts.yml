@@ -1,0 +1,39 @@
+# The artifacts we PUBLISH, checked on every push.
+#
+# WHY THIS EXISTS. On 2026-08-12 the shipped ramr_traces_v0.1.jsonl and the v0.2 pair derived from it
+# came from two different generator runs -- same 300 queries, and not one of 300 traces holding the
+# same record_ids, so joining them matched nothing, silently. It was found by an outside reader's
+# question, not by us, and the reply disclosing it had to admit that the checker written to catch the
+# class was a script nobody ran. A guard with no caller is the same defect wearing a fix's clothes.
+#
+# All three checks are stdlib plus the vendored inspeximus package, so there is nothing to install.
+name: artifacts
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Do the files we ship agree with each other? Reads the artifacts on disk, NOT a fresh
+      # generation -- a fresh run rebuilds both sides from one generation and they agree by
+      # construction, which is exactly how the defect stayed invisible.
+      - name: published trace pair joins
+        run: python ramr_traces_pair_consistency.py
+
+      # The baseline's numbers, and the controls that make them mean something.
+      - name: twin baseline order-invariance + controls
+        run: python ramr_traces_order_invariance.py
+
+      # The known content shortcut. This one is expected to FIND something: it reports the size of a
+      # leak we have not yet fixed, so it must keep running and keep saying so out loud.
+      - name: value-echo shortcut (reports a known, unfixed leak)
+        run: python ramr_traces_value_echo_shortcut.py
