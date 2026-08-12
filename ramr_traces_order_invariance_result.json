@@ -1,0 +1,41 @@
+{
+  "question": "was the twin baseline measured on the same shuffled data as the detector?",
+  "asked_by": "Marat Sultanov, deepseek-ai/DeepSeek-V3#1466",
+  "same_items_per_trace": true,
+  "traces_whose_order_differs": 299,
+  "control_positional": {
+    "v01": [
+      300,
+      300
+    ],
+    "v02": [
+      155,
+      300
+    ],
+    "holds": true
+  },
+  "twin": {
+    "v01": {
+      "scorer": "contradiction twin on v0.1 (labelled, generator order)",
+      "detection_rate": 1.0,
+      "false_positive_rate": 0.1657142857142857,
+      "planted_items": 300,
+      "clean_items": 2100,
+      "skipped_traces": 0
+    },
+    "v02": {
+      "scorer": "contradiction twin on v0.2 (blind, shuffled)",
+      "detection_rate": 1.0,
+      "false_positive_rate": 0.1657142857142857,
+      "planted_items": 300,
+      "clean_items": 2100,
+      "skipped_traces": 0
+    }
+  },
+  "twin_precision": {
+    "v01": 0.46296296296296297,
+    "v02": 0.46296296296296297
+  },
+  "identical": true,
+  "verdict": "NO CONFOUND -- the twin baseline scores identically on both, so which version it was measured on cannot move the comparison"
+}
