@@ -322,6 +322,28 @@ def envelope(traces):
 
 
 # ── adapters ─────────────────────────────────────────────────────────────────────────────────────────
+def demo_traces(n=300, k=8, seed=4, leak=True):
+    """A synthetic fixture, so the tool can demonstrate itself with no data of yours.
+
+    With leak=True the target is always the first candidate and nothing else distinguishes it, so
+    `position:first` should read ~100% against a ~0% null. With leak=False the target is drawn
+    uniformly after the items are built and every probe should fall to its own chance level -- that
+    second case is the one worth trusting, because a battery that cannot stay silent is worthless.
+    """
+    rnd = random.Random(seed)
+    words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india",
+             "juliet", "kilo", "lima", "mike", "november", "oscar", "papa"]
+    out = []
+    for t in range(n):
+        items = [{"id": "t%d-i%d" % (t, j),
+                  "text": "%s." % " ".join(rnd.choice(words) for _ in range(4))} for j in range(k)]
+        tgt = 0 if leak else rnd.randrange(k)
+        dec = rnd.choice([j for j in range(k) if j != tgt])
+        out.append(Trace("t%d" % t, " ".join(rnd.choice(words) for _ in range(3)),
+                         items, items[tgt]["id"], items[dec]["id"]))
+    return out
+
+
 def _load_jsonl(path):
     return [json.loads(l) for l in io.open(path, encoding="utf-8") if l.strip()]
 
@@ -412,7 +434,7 @@ def pct(x):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="partial-input baseline battery for retrieval benchmarks")
-    ap.add_argument("--adapter", choices=["ramr", "locomo", "generic"], default="generic")
+    ap.add_argument("--adapter", choices=["ramr", "locomo", "generic", "demo"], default="generic")
     ap.add_argument("--blind", default="ramr_traces_v0.2_blind.jsonl")
     ap.add_argument("--labels", default="ramr_traces_v0.2_labels.jsonl")
     ap.add_argument("--target", default="planted", help="generic adapter: label key for the answer")
@@ -420,13 +442,15 @@ def main(argv=None):
     ap.add_argument("--json", dest="json_out", default=None)
     a = ap.parse_args(argv)
 
-    needed = [a.blind] if a.adapter == "locomo" else [a.blind, a.labels]
+    needed = [] if a.adapter == "demo" else ([a.blind] if a.adapter == "locomo" else [a.blind, a.labels])
     for p in needed:
         if not os.path.exists(p):
             print("MISSING: %s" % p)
             return 2
 
-    if a.adapter == "ramr":
+    if a.adapter == "demo":
+        traces = demo_traces()
+    elif a.adapter == "ramr":
         traces = adapt_ramr(a.blind, a.labels)
     elif a.adapter == "locomo":
         traces = adapt_locomo(a.blind)

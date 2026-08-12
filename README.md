@@ -28,6 +28,54 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
   tokens, but this would be noisy on free-form text.
 - **Single covariate construction per metric.** We do not claim these magnitudes transfer unchanged to other task
   shapes; we claim the *relative* effects are robust where the CI says so.
+- **The retrieval traces leak, and by how much is published.** See the shortcut floor below and `ERRATA.md`.
+
+---
+
+## The shortcut floor (`memaudit.py`)
+
+**How much of this benchmark can be solved without understanding it?** A partial-input baseline
+battery — position, casing, length, token recurrence, query overlap, stray fields, id shape — reports
+the score reachable by rules that read only surface form. Run it beside any score from these traces:
+
+```bash
+python memaudit.py --adapter demo    # see it work, with no data of yours
+python memaudit.py --adapter ramr --blind ramr_traces_v0.5_blind.jsonl --labels ramr_traces_v0.5_labels.jsonl
+```
+
+| trace version | shortcut floor | coverage |
+|---|---|---|
+| v0.2 | **97.2%** | 96.0% |
+| v0.3 (structural re-cut) | 96.8% | 52.7% |
+| v0.5 (connectivity balanced by construction) | 40.0% | **1.7%** |
+| [LoCoMo](https://github.com/snap-research/locomo), for comparison | 36.3% | 44.3% |
+
+A floor, never a verdict: a passing probe proves nothing —
+*"failures of partial-input baselines do not mean the dataset is free of artifacts"*
+([Feng, Wallace & Boyd-Graber, ACL 2019](https://aclanthology.org/P19-1554/)). It is a **lower bound**:
+these rules, not all possible rules.
+
+**The null is the point.** Run enough surface rules against any labelled data and something separates.
+So every probe is also scored against permuted labels — the label moved to another candidate in the
+same trace, leaving set size, text and order intact — and that is its *measured* chance level. `REAL`
+is decided by lift over that null, never by coverage. `test_memaudit.py` asserts both directions in
+CI: **0 of 8 probes fire** on synthetic clean data, and a planted position cue reads **100.0% against
+a 0.0% null**. Without that control, a shortcut battery is a machine for manufacturing alarming
+numbers about other people's work.
+
+**Why it lives here and not in its own repository.** A tool that audits benchmarks, shipped inside one
+of them, invites the obvious objection. The answer is not a separate repo — it is that this tool was
+written to audit *its own author's* work and we published that number first, and worse: 97.2% on our
+traces against 36.3% on someone else's. The LoCoMo row is a floor **for our framing** (every dialogue
+turn as a candidate, single-evidence questions only), not a verdict on their benchmark, and LoCoMo
+shows no positional artifact and no stray label field — clean on the two axes where ours leaked. No
+dataset is redistributed; adapters take a path to your own copy.
+
+It caught us twice while we used it. A re-cut that "fixed" the length cue had merely **inverted** it
+(73% → 83% the other way, which one-directional scoring reads as *at chance*); and balancing the echo
+cue meant injecting a record whose distinctive id solved **205 of 300 traces**, while every probe
+reported *at chance* because none of them looked at ids. Binary probes are now scored in both
+directions, and `leak:id-outlier` exists because of the second one.
 
 ---
 
