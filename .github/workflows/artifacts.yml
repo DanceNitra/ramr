@@ -53,3 +53,8 @@ jobs:
       # generator is re-cut; the point is that it is printed, not that it is small.
       - name: memaudit floor on RAMR v0.2
         run: python memaudit.py --adapter ramr
+
+      # v0.3, the structural re-cut. Still reports a floor -- that is the point. A re-cut that is not
+      # measured afterwards is a hope, and this one removed two cues while a third survived inverted.
+      - name: memaudit floor on RAMR v0.3
+        run: python memaudit.py --adapter ramr --blind ramr_traces_v0.3_blind.jsonl --labels ramr_traces_v0.3_labels.jsonl

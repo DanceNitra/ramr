@@ -170,15 +170,23 @@ def probe_query_overlap(t):
     return best
 
 
-PROBES = [
-    ("position:first", probe_position_first),
-    ("position:pair-order", probe_pair_order),
-    ("leak:stray-field", probe_stray_field),
-    ("content:value-echo", probe_value_echo),
-    ("content:casing", probe_casing),
-    ("content:length", probe_length),
-    ("content:query-overlap", probe_query_overlap),
+#: (name, fn, binary). BINARY means the probe chooses between exactly two candidates -- the pair -- so
+#: its rule can be INVERTED and remain a rule. This is not hypothetical: the v0.3 re-cut drew the stale
+#: value to match the current one's length and turned "stale is longer" (73%) into "stale is SHORTER"
+#: (83%). Scored one-directionally that reads as 16.7% and therefore "at chance", and the re-cut would
+#: have been declared a success while the cue was stronger than before, pointing the other way. For a
+#: binary probe the exploitable quantity is |accuracy - 50%|, and the direction is a label, not a result.
+PROBES_SPEC = [
+    ("position:first", probe_position_first, False),
+    ("position:pair-order", probe_pair_order, True),
+    ("leak:stray-field", probe_stray_field, False),
+    ("content:value-echo", probe_value_echo, True),
+    ("content:casing", probe_casing, True),
+    ("content:length", probe_length, True),
+    ("content:query-overlap", probe_query_overlap, False),
 ]
+PROBES = [(n, f) for n, f, _ in PROBES_SPEC]
+BINARY = {n: b for n, _, b in PROBES_SPEC}
 
 
 # ── scoring, with the null ───────────────────────────────────────────────────────────────────────────
@@ -231,9 +239,17 @@ def audit(traces, null_rounds=5, seed=7):
             nr += r
         null_acc = (nr / nf) if nf else None
 
+        # A binary rule read backwards is still a rule -- see the note on PROBES_SPEC. Take whichever
+        # direction is exploitable and carry the direction as a label.
+        inverted = False
+        if BINARY.get(name) and acc is not None and null_acc is not None and acc < null_acc:
+            acc, null_acc, inverted = 1.0 - acc, 1.0 - null_acc, True
+
         lift = None if (acc is None or null_acc is None) else acc - null_acc
-        rows.append({"probe": name, "fired": fired, "coverage": fired / n if n else 0.0,
+        rows.append({"probe": name + (" (inverted)" if inverted else ""),
+                     "fired": fired, "coverage": fired / n if n else 0.0,
                      "accuracy": acc, "null_accuracy": null_acc, "lift": lift,
+                     "inverted": inverted,
                      "real": bool(lift is not None and lift > 0.10)})
     return rows
 
@@ -246,13 +262,18 @@ def envelope(traces):
     """
     rows = [r for r in audit(traces) if r["real"] and r["accuracy"] is not None]
     rows.sort(key=lambda r: -r["accuracy"])
-    order = [dict(PROBES)[r["probe"]] for r in rows]
+    lut = dict(PROBES)
+    order = [(lut[r["probe"].replace(" (inverted)", "")], r["inverted"]) for r in rows]
     fired = right = 0
     for t in traces:
-        for fn in order:
+        for fn, inv in order:
             g = fn(t)
             if g is not None:
                 fired += 1
+                # An inverted rule picks the OTHER member of the pair.
+                if inv:
+                    other = t.decoy if g == t.target else t.target
+                    g = other
                 right += (g == t.target)
                 break
     return {"probes_used": [r["probe"] for r in rows], "fired": fired,

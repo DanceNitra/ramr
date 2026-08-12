@@ -35,6 +35,8 @@ REQUIRED = [
     "ramr_traces_v0.1.jsonl",
     "ramr_traces_v0.2_blind.jsonl",
     "ramr_traces_v0.2_labels.jsonl",
+    "ramr_traces_v0.3_blind.jsonl",
+    "ramr_traces_v0.3_labels.jsonl",
 ]
 
 

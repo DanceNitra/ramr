@@ -1,0 +1,85 @@
+{
+  "version": "0.1.0",
+  "traces": 300,
+  "probes": [
+    {
+      "probe": "position:first",
+      "fired": 300,
+      "coverage": 1.0,
+      "accuracy": 0.13,
+      "null_accuracy": 0.13,
+      "lift": 0.0,
+      "inverted": false,
+      "real": false
+    },
+    {
+      "probe": "position:pair-order",
+      "fired": 300,
+      "coverage": 1.0,
+      "accuracy": 0.52,
+      "null_accuracy": 0.486,
+      "lift": 0.03400000000000003,
+      "inverted": false,
+      "real": false
+    },
+    {
+      "probe": "leak:stray-field",
+      "fired": 0,
+      "coverage": 0.0,
+      "accuracy": null,
+      "null_accuracy": null,
+      "lift": null,
+      "inverted": false,
+      "real": false
+    },
+    {
+      "probe": "content:value-echo",
+      "fired": 226,
+      "coverage": 0.7533333333333333,
+      "accuracy": 0.6592920353982301,
+      "null_accuracy": 0.4921052631578947,
+      "lift": 0.1671867722403354,
+      "inverted": false,
+      "real": true
+    },
+    {
+      "probe": "content:casing",
+      "fired": 0,
+      "coverage": 0.0,
+      "accuracy": null,
+      "null_accuracy": 0.5006993006993007,
+      "lift": null,
+      "inverted": false,
+      "real": false
+    },
+    {
+      "probe": "content:length (inverted)",
+      "fired": 114,
+      "coverage": 0.38,
+      "accuracy": 0.8333333333333334,
+      "null_accuracy": 0.4816625916870416,
+      "lift": 0.35167074164629175,
+      "inverted": true,
+      "real": true
+    },
+    {
+      "probe": "content:query-overlap",
+      "fired": 48,
+      "coverage": 0.16,
+      "accuracy": 0.0,
+      "null_accuracy": 0.13333333333333333,
+      "lift": -0.13333333333333333,
+      "inverted": false,
+      "real": false
+    }
+  ],
+  "floor": {
+    "probes_used": [
+      "content:length (inverted)",
+      "content:value-echo"
+    ],
+    "fired": 251,
+    "coverage": 0.8366666666666667,
+    "accuracy": 0.9243027888446215
+  }
+}
