@@ -1,0 +1,27 @@
+{
+  "source_traces": 300,
+  "seed": 20260812,
+  "v01": {
+    "positional_invariant": [
+      300,
+      300
+    ],
+    "label_field_present": true,
+    "positional_scorer": [
+      300,
+      300
+    ]
+  },
+  "v02": {
+    "positional_invariant": [
+      155,
+      300
+    ],
+    "label_field_present": false,
+    "positional_scorer": [
+      155,
+      300
+    ]
+  },
+  "both_exploits_dead": true
+}

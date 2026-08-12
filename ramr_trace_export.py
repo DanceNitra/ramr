@@ -52,6 +52,13 @@ K = 8
 
 
 def _chains(limit):
+    """Up to `limit` chains, and it SAYS SO when the corpus runs out first.
+
+    TRACES is an exposed knob, and until the construction gate asked, asking for 600 silently
+    returned 300 -- the corpus has fewer rows than that, and a knob that quietly gives less than it
+    was asked for is the same shape as every other silent success in this repository. The caller now
+    learns the difference instead of inferring it from a number that looks plausible.
+    """
     rows = []
     with io.open(CORPUS, encoding="utf-8") as fh:
         for line in fh:
@@ -59,6 +66,9 @@ def _chains(limit):
                 rows.append(json.loads(line))
                 if len(rows) >= limit:
                     break
+    if len(rows) < limit:
+        print("  NOTE: asked for %d chains, the corpus holds %d -- exporting %d. Every rate below is "
+              "over %d, not %d." % (limit, len(rows), len(rows), len(rows), limit), flush=True)
     return rows
 
 
@@ -188,7 +198,12 @@ def evaluate(traces, scorer, name, oracle=False):
 
 def main():
     n = int(os.environ.get("TRACES", "300"))
-    traces = [build_trace(c) for c in _chains(n)]
+    chains = _chains(n)
+    # SWEPT, not assumed. The positional invariant Marat found is a property of the generator, not of
+    # the sample: measured at TRACES=50, 150 and 300 it is 100% at every size. The gate was right to
+    # refuse a number whose knob had never been varied -- varying it is what turned "surely it is
+    # structural" into three measurements and one defect (this cap).
+    traces = [build_trace(c) for c in chains]
     with io.open(OUT, "w", encoding="utf-8") as fh:
         for t in traces:
             fh.write(json.dumps(t, ensure_ascii=False) + "\n")

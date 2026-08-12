@@ -1,0 +1,55 @@
+{
+  "sizes": [
+    50,
+    150,
+    300,
+    600
+  ],
+  "rows": [
+    {
+      "asked": 50,
+      "produced": 50,
+      "invariant": [
+        50,
+        50
+      ],
+      "pct": 100.0,
+      "kind_field_present": true,
+      "corpus_exhausted": false
+    },
+    {
+      "asked": 150,
+      "produced": 150,
+      "invariant": [
+        150,
+        150
+      ],
+      "pct": 100.0,
+      "kind_field_present": true,
+      "corpus_exhausted": false
+    },
+    {
+      "asked": 300,
+      "produced": 300,
+      "invariant": [
+        300,
+        300
+      ],
+      "pct": 100.0,
+      "kind_field_present": true,
+      "corpus_exhausted": false
+    },
+    {
+      "asked": 600,
+      "produced": 300,
+      "invariant": [
+        300,
+        300
+      ],
+      "pct": 100.0,
+      "kind_field_present": true,
+      "corpus_exhausted": true
+    }
+  ],
+  "invariant_independent_of_n": true
+}
