@@ -43,3 +43,13 @@ jobs:
       # leak we have not yet fixed, so it must keep running and keep saying so out loud.
       - name: value-echo shortcut (reports a known, unfixed leak)
         run: python ramr_traces_value_echo_shortcut.py
+
+      # The audit battery's own calibration: silent on synthetic clean data, sees a planted cue.
+      # A shortcut battery with no null is a machine for manufacturing alarming numbers.
+      - name: memaudit calibration (negative + positive control)
+        run: python test_memaudit.py
+
+      # The published shortcut floor for our own traces. Expected to report a high number until the
+      # generator is re-cut; the point is that it is printed, not that it is small.
+      - name: memaudit floor on RAMR v0.2
+        run: python memaudit.py --adapter ramr
