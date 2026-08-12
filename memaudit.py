@@ -21,7 +21,9 @@ control a shortcut battery is a machine for manufacturing alarming numbers.
 WHAT IT DOES NOT DO. It cannot certify a benchmark clean; nothing can. It measures the floor reachable
 by THESE rules, which is a lower bound on the true floor and never an upper one.
 
+    python memaudit.py --adapter demo                        # see it work, with no data of yours
     python memaudit.py --adapter ramr
+    python memaudit.py --adapter locomo --blind locomo10.json
     python memaudit.py --blind traces.jsonl --labels labels.jsonl --target planted --decoy replaces
 """
 import argparse
