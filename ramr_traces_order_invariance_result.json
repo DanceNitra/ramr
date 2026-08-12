@@ -37,5 +37,5 @@
     "v02": 0.46296296296296297
   },
   "identical": true,
-  "verdict": "NO CONFOUND -- the twin baseline scores identically on both, so which version it was measured on cannot move the comparison"
+  "verdict": "BASELINE HALF ONLY -- twin_score is a symmetric set predicate, so shuffling cannot move it and the run confirms the implementation matches that definition. This does NOT establish that the two arms of the comparison were scored on the same data, which is what was actually asked, and it is silent about our two published files differing in record_ids rather than in order"
 }

@@ -1,0 +1,12 @@
+{
+  "traces_with_plant": 300,
+  "current_value_echoes": 206,
+  "stale_value_echoes": 5,
+  "both": 2,
+  "neither": 91,
+  "decisive": 207,
+  "correct_on_decisive": 204,
+  "accuracy_on_decisive": 0.9855072463768116,
+  "coverage": 0.69,
+  "note": "survives v0.2: the shuffle fixed order and the split fixed labels; this is content"
+}
