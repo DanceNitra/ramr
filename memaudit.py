@@ -278,6 +278,44 @@ def adapt_ramr(blind_path, labels_path):
     return out
 
 
+def adapt_locomo(path, _unused=None, single_evidence_only=True):
+    """LoCoMo (snap-research/locomo) -- the category's most-quoted benchmark.
+
+    The retrieval question it poses: given a question and every dialogue turn of a long conversation,
+    which turn holds the evidence? That is a partial-input setting whether or not it was built as one,
+    so the audit asks how often the evidence turn can be picked WITHOUT reading the question.
+
+    Only single-evidence questions are used by default (1,559 of them). A multi-evidence item has no
+    single target, and scoring it as if it did would credit a probe for finding any one of several
+    right answers -- inflating exactly the number this tool exists to keep honest.
+
+    The dataset is NOT redistributed here; pass the path to your own copy.
+    """
+    data = json.load(io.open(path, encoding="utf-8"))
+    out = []
+    for sample in data:
+        conv = sample.get("conversation") or {}
+        items = []
+        for k in sorted((k for k in conv if k.startswith("session_") and not k.endswith("_date_time")),
+                        key=lambda s: int(s.split("_")[1])):
+            for turn in conv[k] or []:
+                if turn.get("dia_id"):
+                    items.append({"id": turn["dia_id"], "text": turn.get("text") or "",
+                                  "speaker": turn.get("speaker")})
+        if not items:
+            continue
+        present = {i["id"] for i in items}
+        for n, qa in enumerate(sample.get("qa") or []):
+            ev = qa.get("evidence") or []
+            if single_evidence_only and len(ev) != 1:
+                continue
+            if not ev or ev[0] not in present:
+                continue
+            out.append(Trace("%s-q%d" % (sample.get("sample_id"), n),
+                             qa.get("question"), items, ev[0], None))
+    return out
+
+
 def adapt_generic(blind_path, labels_path, target_key, decoy_key):
     labels = {}
     for r in _load_jsonl(labels_path):
@@ -313,7 +351,7 @@ def pct(x):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="partial-input baseline battery for retrieval benchmarks")
-    ap.add_argument("--adapter", choices=["ramr", "generic"], default="generic")
+    ap.add_argument("--adapter", choices=["ramr", "locomo", "generic"], default="generic")
     ap.add_argument("--blind", default="ramr_traces_v0.2_blind.jsonl")
     ap.add_argument("--labels", default="ramr_traces_v0.2_labels.jsonl")
     ap.add_argument("--target", default="planted", help="generic adapter: label key for the answer")
@@ -321,13 +359,18 @@ def main(argv=None):
     ap.add_argument("--json", dest="json_out", default=None)
     a = ap.parse_args(argv)
 
-    for p in (a.blind, a.labels):
+    needed = [a.blind] if a.adapter == "locomo" else [a.blind, a.labels]
+    for p in needed:
         if not os.path.exists(p):
             print("MISSING: %s" % p)
             return 2
 
-    traces = (adapt_ramr(a.blind, a.labels) if a.adapter == "ramr"
-              else adapt_generic(a.blind, a.labels, a.target, a.decoy))
+    if a.adapter == "ramr":
+        traces = adapt_ramr(a.blind, a.labels)
+    elif a.adapter == "locomo":
+        traces = adapt_locomo(a.blind)
+    else:
+        traces = adapt_generic(a.blind, a.labels, a.target, a.decoy)
     if not traces:
         print("no traces loaded -- an empty audit is a refusal, not a pass")
         return 2
