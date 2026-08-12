@@ -21,8 +21,21 @@ closest to its length. All three cues are addressed at the source rather than fi
 It uses the SHIPPED export path (`build_trace` from ramr_trace_export) with only the plant chooser
 swapped, so this measures the generator we actually run rather than a reconstruction of it.
 
-WHAT IT CANNOT DO. It cannot make the fixture clean, and this file does not claim to: run memaudit
-afterwards and publish whatever floor remains. A re-cut that is not measured is a hope.
+WHAT IT CANNOT DO, and this is diagnosed rather than shrugged at. Echo survives at 100% accuracy over
+47.7% of traces and no choice of donor fixes it, because the cue is a property of RETRIEVAL, not of the
+plant. The echo probe reads the retrieved set; retrieval is lexical on the question, so it returns the
+gold chain and rarely the distractor a donor came from. A stored donor is therefore usually not a
+retrieved one, and only the chain's own gold entities are reliably present -- but a chain holds exactly
+one company, one country and one currency, so there is no same-type entity available to donate. Drawing
+across types ("Eskander works at Drmark") would balance echo and introduce a type cue in its place,
+which is trading a measured leak for an unmeasured one.
+
+Balancing echo therefore needs the CORPUS to give each chain more than one entity per type, so a
+same-type, same-slot, retrieved donor exists. That is a change to build_dataset.py and it is not done
+here. Until it is, the floor is published as it stands.
+
+It cannot make the fixture clean, and this file does not claim to: run memaudit afterwards and publish
+whatever floor remains. A re-cut that is not measured is a hope.
 
     python ramr_traces_v03_recut.py && python memaudit.py --adapter ramr \\
         --blind ramr_traces_v0.3_blind.jsonl --labels ramr_traces_v0.3_labels.jsonl
@@ -54,16 +67,31 @@ def _subjects_all(chain):
     stored = set(_subjects(chain))
     out = []
     for d in (chain.get("distractor_pool") or []):
-        w = d.rstrip(".").split()
-        if not w:
-            continue
-        if w[0].lower() == "the" and len(w) > 3:
-            s = w[2] if w[1].lower() == "currency" and len(w) > 2 else w[1]
-        else:
-            s = w[0]
+        s = _subject(d)
         if s:
             out.append((s, s in stored))
     return out
+
+
+def _subject(sentence):
+    """The grammatical subject. 'The currency of Faovia is the polek.' -> Faovia.
+
+    THIS WAS OFF BY ONE AND IT SHIPPED. The first version took the token after 'currency', which is
+    the word 'of', so 94 of 300 v0.3 plants read 'The currency of Kamark is the of.' -- 31% of the
+    corpus was grammatical nonsense carrying a two-character value. It did not announce itself as a
+    parsing bug; it surfaced as the LENGTH cue inverting to 83%, because a lowercase current value
+    like 'fenek' was being matched against a donor pool consisting almost entirely of 'of'. A defect
+    that arrives disguised as a statistic is why the re-cut gets audited instead of trusted.
+    """
+    w = (sentence or "").rstrip(".").split()
+    if not w:
+        return None
+    if w[0].lower() in ("the", "a", "an"):
+        if "of" in w:                       # 'The currency of X is the Y' -> X
+            i = w.index("of")
+            return w[i + 1] if i + 1 < len(w) else None
+        return w[1] if len(w) > 1 else None
+    return w[0]
 
 
 def _subjects(chain, n_distractors=12):
@@ -72,16 +100,7 @@ def _subjects(chain, n_distractors=12):
     'The currency of Faovia is the polek.' -> Faovia, not polek: the article is skipped and the
     grammatical subject taken, because it is the subject that other facts point at.
     """
-    out = []
-    for d in (chain.get("distractor_pool") or [])[:n_distractors]:
-        w = d.rstrip(".").split()
-        if not w:
-            continue
-        if w[0].lower() == "the" and len(w) > 3:
-            out.append(w[2] if w[1].lower() == "currency" and len(w) > 2 else w[1])
-        else:
-            out.append(w[0])
-    return [s for s in out if s]
+    return [s for s in (_subject(d) for d in (chain.get("distractor_pool") or [])[:n_distractors]) if s]
 
 
 def stale_variant_balanced(fact, chain):
@@ -101,10 +120,32 @@ def stale_variant_balanced(fact, chain):
     cands = [(s, st) for s, st in _subjects_all(chain)
              if s != cv and s[:1].isupper() == cv[:1].isupper()]
     if not cands:
+        # NO SUBJECT FITS, and for one slot that is structural rather than accidental: a currency is
+        # never the subject of anything in this corpus, so a lowercase value has no connected donor at
+        # all. Fall back to the OBJECT of a same-shaped fact -- another currency -- which balances case
+        # and length but cannot balance echo. That residue is real and is counted in the report below
+        # rather than hidden by silently dropping the plant.
+        objs = []
+        for d in (chain.get("distractor_pool") or []):
+            w = d.rstrip(".").split()
+            if len(w) == len(words) and w[-1] != cv and w[-1][:1].isupper() == cv[:1].isupper():
+                objs.append((w[-1], False))
+        cands = objs
+    if not cands:
         return None
 
-    # Exact length first, stored donors preferred within it -- that satisfies both cues at once.
-    exact = sorted([c for c in cands if len(c[0]) == len(cv)], key=lambda c: (not c[1], c[0]))
+    # CONNECTEDNESS OUTRANKS LENGTH, and the first ordering had it backwards. Ranked by measured lift:
+    # echo carries 55.2pp and length 16.6pp, so a donor that is STORED -- and therefore echoes like the
+    # value it replaces -- is worth more than one that merely matches character count. Preferring exact
+    # length first left echo at 50.7% coverage and 100.0% accuracy, the single largest surviving cue.
+    stored_exact = sorted([c for c in cands if c[1] and len(c[0]) == len(cv)], key=lambda c: c[0])
+    if stored_exact:
+        return " ".join(words[:-1] + [stored_exact[0][0]]) + "."
+    stored = sorted([c for c in cands if c[1]], key=lambda c: (abs(len(c[0]) - len(cv)), c[0]))
+    if stored:
+        return " ".join(words[:-1] + [stored[0][0]]) + "."
+
+    exact = sorted([c for c in cands if len(c[0]) == len(cv)], key=lambda c: c[0])
     if exact:
         return " ".join(words[:-1] + [exact[0][0]]) + "."
 

@@ -34,11 +34,11 @@
     },
     {
       "probe": "content:value-echo",
-      "fired": 226,
-      "coverage": 0.7533333333333333,
-      "accuracy": 0.6592920353982301,
-      "null_accuracy": 0.4921052631578947,
-      "lift": 0.1671867722403354,
+      "fired": 143,
+      "coverage": 0.4766666666666667,
+      "accuracy": 1.0,
+      "null_accuracy": 0.4491180461329715,
+      "lift": 0.5508819538670284,
       "inverted": false,
       "real": true
     },
@@ -47,19 +47,19 @@
       "fired": 0,
       "coverage": 0.0,
       "accuracy": null,
-      "null_accuracy": 0.5006993006993007,
+      "null_accuracy": 0.5028011204481793,
       "lift": null,
       "inverted": false,
       "real": false
     },
     {
-      "probe": "content:length (inverted)",
-      "fired": 114,
-      "coverage": 0.38,
-      "accuracy": 0.8333333333333334,
-      "null_accuracy": 0.4816625916870416,
-      "lift": 0.35167074164629175,
-      "inverted": true,
+      "probe": "content:length",
+      "fired": 28,
+      "coverage": 0.09333333333333334,
+      "accuracy": 0.6071428571428571,
+      "null_accuracy": 0.5008196721311475,
+      "lift": 0.10632318501170956,
+      "inverted": false,
       "real": true
     },
     {
@@ -75,11 +75,11 @@
   ],
   "floor": {
     "probes_used": [
-      "content:length (inverted)",
-      "content:value-echo"
+      "content:value-echo",
+      "content:length"
     ],
-    "fired": 251,
-    "coverage": 0.8366666666666667,
-    "accuracy": 0.9243027888446215
+    "fired": 158,
+    "coverage": 0.5266666666666666,
+    "accuracy": 0.9683544303797469
   }
 }

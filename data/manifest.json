@@ -31,13 +31,13 @@
     "ramr_traces_v0.3_blind.jsonl": {
       "path": "ramr_traces_v0.3_blind.jsonl",
       "n": 300,
-      "sha256": "dfb69bf35f1252204affa8de7a33aa9b16c979a22c86fb28810590fecd9deb67",
-      "note": "v0.3 re-cut: stale value drawn as a SUBJECT of another retrievable fact, capitalisation matched, length balanced as far as the donor vocabulary allows. Shortcut floor 92.4% over 83.7% -- published, not claimed clean."
+      "sha256": "eb039f7f0d97788997c38295f118e6811ccb63f93f516e9f2042bed3675faea4",
+      "note": "v0.3 re-cut: stale value drawn as a SUBJECT of another fact, capitalisation matched, length balanced. Shortcut floor 96.8% over 52.7% of traces -- published, not claimed clean. Echo survives; see ramr_traces_v03_recut.py for why it needs a corpus change."
     },
     "ramr_traces_v0.3_labels.jsonl": {
       "path": "ramr_traces_v0.3_labels.jsonl",
       "n": 300,
-      "sha256": "74621bf4c16f38b3cc995f4a750730b63f60f6320849c913736452703bca3c74",
+      "sha256": "92bd3ef8cb2cd84eec756e3eea8d0a65e497cb73cde48f1c7c6d969ea455059f",
       "note": "ground truth for v0.3, keyed by chain_id."
     }
   },
