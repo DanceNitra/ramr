@@ -120,6 +120,30 @@ itself.** Where they differ is the receipt: only inspeximus exposes a witness th
 *visible* to a downstream consumer; the others pass silently, which is fine until the day they don't. As
 everywhere in this folder: run it on your own stack, the result is yours.
 
+## Where these cells do not apply
+
+The harness assumes a store of **asserted facts** reached through **ranked retrieval**. Two properties put a
+memory system outside every cell here, and in that case the absence of a row is a statement about the interface
+rather than about the system:
+
+- **No assertion channel.** A store that only records what was *observed* — a read ledger, an audit trail, a
+  provenance log — has no `add(text)` and no `revert`: there is nothing for an unmarked revert command to act
+  on, and an "echo" is a re-observation rather than a restatement. Cells 1 and 2 are **unsatisfiable, not
+  failed**, and an adapter would have to invent the operations in order to be graded on them.
+- **No ranking.** Where lookup is by exact key, `two_writer_coherence`'s serve half has no analogue: nothing can
+  retake top-1 because there is no top-1. Its **receipt** half still applies and is worth testing separately —
+  can the store show a consumer that state moved after the answer was produced? An observation ledger can:
+  pin the digests a fact was derived from, re-verify at the moment the fact reaches an action.
+
+`erasure_selfcheck.py` remains meaningful for such stores, with a predictable result: an append-only design
+reports the marker as present, which is this folder's documented "audit log" outcome rather than a finding.
+
+One datum from that class of store, since it bears on Cell 1: on an append-only read ledger of **634 file paths
+over 1,855 records, 226 paths changed content and none returned to a previous digest** (one file has 44 distinct
+digests). Value-obscuring revert is a property of the **command channel**, not of the data — where the value is a
+file, the old value is not waiting to be restored, and nothing restores it by accident. Reproducible from any
+append-only read ledger that stores digests.
+
 ## Planned cells (harness shape is the same)
 
 - **conflict-consolidation** — the MemoryAgentBench-style task where every system is weak (best ~54% single-hop);
