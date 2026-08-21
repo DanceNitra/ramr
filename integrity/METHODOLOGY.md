@@ -34,8 +34,13 @@ Store a value, correct it, then issue an **unmarked** revert that names no value
 
 **Symmetric instrument (fairness fix 2026-07-11).** An earlier version scored inspeximus *mechanically* from its own
 ledger while mem0/Graphiti went through the LLM judge — an asymmetric instrument a pre-publication red-team
-caught. Now **every system is read by the same ground-truth-blind LLM judge on its own native retrieval
-surface**. The fix dropped inspeximus's headline from a flattering 1.00 to 0.75.
+caught. Now **every system is read by the same ground-truth-blind LLM judge over its full memory state**,
+as described under *Shared judge* above — `get_all` / all valid facts, not top-k. Ranking is therefore not
+part of this cell or of Cell 2; it enters this folder only in `two_writer_coherence`'s top-1 check. (An
+earlier wording here said "on its own native retrieval surface", which described the pre-fix instrument
+and contradicted the *Shared judge* paragraph; corrected 2026-08-21 after an outside reader took the
+wrong one of the two as the harness's premise.) The fix dropped inspeximus's headline from a flattering
+1.00 to 0.75.
 
 | system | revert success (n=20) | 95% CI | what happens |
 |---|---|---|---|
