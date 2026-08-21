@@ -9,7 +9,7 @@
     "S3_unbound_changed": "VALID",
     "S4_semantic_noop": "STALE"
   },
-  "iso": "2026-08-21T15:49:17Z",
+  "iso": "2026-08-21T17:27:42Z",
   "rows": {
     "ledger": {
       "S1_no_change": "VALID",
@@ -17,6 +17,13 @@
       "S3_unbound_changed": "VALID",
       "S4_semantic_noop": "STALE",
       "S5_returned_to_original": "VALID"
+    },
+    "ledger+gen": {
+      "S1_no_change": "VALID",
+      "S2_bound_changed": "STALE",
+      "S3_unbound_changed": "VALID",
+      "S4_semantic_noop": "STALE",
+      "S5_returned_to_original": "STALE"
     },
     "inspeximus": {
       "S1_no_change": "VALID",
