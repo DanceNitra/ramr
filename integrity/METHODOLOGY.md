@@ -125,6 +125,47 @@ itself.** Where they differ is the receipt: only inspeximus exposes a witness th
 *visible* to a downstream consumer; the others pass silently, which is fine until the day they don't. As
 everywhere in this folder: run it on your own stack, the result is yours.
 
+## Where these cells do not apply
+
+The harness reads each system's **full memory state** through the shared judge, so **ranking is not a premise of
+Cells 1 and 2** — they are excluded from a store for a different reason. The two properties below are therefore
+not parallel, and presenting them as a pair was the error in the first draft of this section:
+
+- **No assertion channel** — this excludes Cells 1 and 2 **on its own**, with no dependence on how retrieval
+  works. A store that only records what was *observed* — a read ledger, an audit trail, a provenance log — has no
+  `add(text)` and no `revert`: there is nothing for an unmarked revert command to act on, and an "echo" is a
+  re-observation rather than a restatement. The cells are **unsatisfiable, not failed**, and an adapter would have
+  to invent the operations in order to be graded on them.
+- **No ranking** — this excludes almost nothing. Where lookup is by exact key, only `two_writer_coherence`'s
+  **serve** half loses its analogue: nothing can retake top-1 because there is no top-1. Its **receipt** half
+  survives, and is worth testing separately — can the store show a consumer that state moved after the answer was
+  produced? An observation ledger can: pin the digests a fact was derived from, re-verify at the moment the fact
+  reaches an action.
+
+So a key-value store is not outside Cells 1 and 2 for lack of ranking; it is outside them for having nothing to
+assert. `erasure_selfcheck.py` remains meaningful for such stores, with a predictable result: an append-only
+design reports the marker as present, which is this folder's documented "audit log" outcome rather than a finding.
+
+One datum from that class of store, since it bears on Cell 1 — stated as two separate claims, because they are
+two different events. Both are measured on **one population**, read 2026-08-21:
+
+- **Measured:** on an append-only read ledger of **862 file paths over 2,443 records, 288 paths changed content
+  and none returned to a previous digest** (one file has 52 distinct digests). Reproducible from any append-only
+  read ledger that stores digests.
+- **Not claimed:** that a source cannot return to an earlier digest. It can, legitimately — `git checkout`,
+  `restore`, a sync replacing a file with an older copy. On this same population the return was *physically
+  available*: **194 of the 288 paths that changed content** sit under git control. So the zero describes a working
+  pattern (no checkout of an observed file happened), **not** a property of the file domain.
+
+Availability is uneven inside one key space, too: **35 of the changed paths live in temp/scratch directories**,
+where a git-style return cannot occur at all. It is one more reason the zero is not a clean measurement of
+anything — part of the population could not have produced the event being counted.
+
+And the two events must not be conflated even when the digest repeats: **a repeated old digest in the source is a
+new observation of previous bytes; a revert command in a store is an operation on an assertion.** The first says
+"the file now says what it once said"; the second says "treat the correction as withdrawn". A ledger can witness
+the first and has no channel for the second — which is the boundary, rather than evidence about revert.
+
 ## Planned cells (harness shape is the same)
 
 - **conflict-consolidation** — the MemoryAgentBench-style task where every system is weak (best ~54% single-hop);
