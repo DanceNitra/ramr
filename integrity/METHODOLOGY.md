@@ -123,8 +123,10 @@ everywhere in this folder: run it on your own stack, the result is yours.
 ## Where these cells do not apply
 
 The harness assumes a store of **asserted facts** reached through **ranked retrieval**. Two properties put a
-memory system outside every cell here, and in that case the absence of a row is a statement about the interface
-rather than about the system:
+memory system outside the **full applicability of these ranked-assertion cells**, and in that case the absence of a
+row is a statement about the interface rather than about the system. Note the scope: this is not "outside
+everything here" — the receipt half of `two_writer_coherence` and `erasure_selfcheck.py` both still apply, as
+spelled out below:
 
 - **No assertion channel.** A store that only records what was *observed* — a read ledger, an audit trail, a
   provenance log — has no `add(text)` and no `revert`: there is nothing for an unmarked revert command to act
@@ -138,11 +140,22 @@ rather than about the system:
 `erasure_selfcheck.py` remains meaningful for such stores, with a predictable result: an append-only design
 reports the marker as present, which is this folder's documented "audit log" outcome rather than a finding.
 
-One datum from that class of store, since it bears on Cell 1: on an append-only read ledger of **634 file paths
-over 1,855 records, 226 paths changed content and none returned to a previous digest** (one file has 44 distinct
-digests). Value-obscuring revert is a property of the **command channel**, not of the data — where the value is a
-file, the old value is not waiting to be restored, and nothing restores it by accident. Reproducible from any
-append-only read ledger that stores digests.
+One datum from that class of store, since it bears on Cell 1 — stated as two separate claims, because they are
+two different events:
+
+- **Measured:** on an append-only read ledger of **634 file paths over 1,855 records, 226 paths changed content and
+  none returned to a previous digest** (one file has 44 distinct digests). Reproducible from any append-only read
+  ledger that stores digests.
+- **Not claimed:** that a source cannot return to an earlier digest. It can, legitimately — `git checkout`,
+  `restore`, a sync replacing a file with an older copy. On this very population the return was *physically
+  available*: 417 of 787 paths sit under git control, and **181 of the 266 paths that changed content** are among
+  them. So the zero describes a working pattern (no checkout of an observed file happened), **not** a property of
+  the file domain.
+
+And the two events must not be conflated even when the digest repeats: **a repeated old digest in the source is a
+new observation of previous bytes; a revert command in a store is an operation on an assertion.** The first says
+"the file now says what it once said"; the second says "treat the correction as withdrawn". A ledger can witness
+the first and has no channel for the second — which is the boundary, rather than evidence about revert.
 
 ## Planned cells (harness shape is the same)
 
