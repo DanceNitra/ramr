@@ -9,3 +9,11 @@
 # it rewrites nothing: all 48 tracked .py files are already stored with LF in HEAD, measured
 # before the line was added.
 *.py text eol=lf
+# WHAT THIS PROMISE COVERS, after @Stratogain measured the edge on DanceNitra/ramr#3: the
+# first sentence is true of checkouts made AFTER this line. A clone that predates it keeps
+# CRLF in its working tree and git stays quiet about it, because it normalises on compare --
+# so `git status` is clean while the file on disk and its blob hash differently. He measured
+# exactly that on his clone (memaudit.py disk de8aa216 vs blob ea30350c); on a clone made
+# after the line, disk and blob agree, which is what we see here. Nothing pins a .py today,
+# so nothing breaks either way. The day something does, the fix for an older clone is a
+# RE-CHECKOUT of the file, not a pull.

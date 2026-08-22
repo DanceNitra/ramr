@@ -17,7 +17,7 @@
   "resolved": {
     "inspeximus": {
       "version": "2.20.0",
-      "origin": "local checkout outside this repo (not reproducible elsewhere)",
+      "origin": "installed distribution",
       "module": "inspeximus"
     }
   },
@@ -33,7 +33,7 @@
       "VALID"
     ]
   },
-  "iso": "2026-08-22T14:14:45Z",
+  "iso": "2026-08-22T18:38:02Z",
   "rows": {
     "ledger": {
       "S1_no_change": "VALID",
