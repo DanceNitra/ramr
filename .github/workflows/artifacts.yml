@@ -70,3 +70,27 @@ jobs:
       # harness rather than the detector.
       - name: scoring harness controls (v0.5)
         run: python ramr_score_traces.py --version 0.5
+
+      # The receipt-binding cell. It was the file in this repo arguing that a check nobody calls is
+      # not a check, and it was the one artifact here run by hand -- "a guard with no caller is the
+      # same defect wearing a fix's clothes", per the top of this file.
+      #
+      # Its adversarial rows ARE the test: _always_valid, _always_stale, _underbound and _unscoped
+      # must each keep failing the exact scenario they are built to fail, and the cell exits 1 if
+      # any of them stops failing. A live mutation that reverted the S6 fix once left every control
+      # green because only those rows were checked -- that is what this step now catches on push.
+      #
+      # stdlib only, like the steps above -- and the one step here that does NOT see the vendored
+      # inspeximus. The steps above are run from the repo root, so root IS the script directory and
+      # the vendored package imports; this file lives in integrity/, so root is not on sys.path and
+      # the row declines with "No module named 'inspeximus'". Measured in this workflow's own log,
+      # after a first version of this comment blamed the vendored 2.5.0 signature instead -- same
+      # outcome, wrong cause.
+      #
+      # Either way the artifact says `complete: false`, accurately: one backend did not run. If the
+      # more useful decline is the row's own requirement message ("has witness(); this row needs
+      # witness(records=, bind_sources=)"), run it as `python -m integrity.receipt_binding` from the
+      # root -- that imports the vendored 2.5.0 and the row states what it needs rather than
+      # reporting an absence.
+      - name: receipt-binding cell (adversarial controls must keep failing)
+        run: python integrity/receipt_binding.py
