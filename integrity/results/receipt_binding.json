@@ -11,6 +11,7 @@
   },
   "argv": [],
   "selected": null,
+  "unfiltered": true,
   "complete": true,
   "exit_status": 0,
   "resolved": {
@@ -20,7 +21,19 @@
       "module": "inspeximus"
     }
   },
-  "iso": "2026-08-22T10:32:52Z",
+  "reads_before_stale": {
+    "content_continuity": [
+      "VALID",
+      "VALID",
+      "VALID"
+    ],
+    "transition_continuity": [
+      "VALID",
+      "STALE",
+      "STALE"
+    ]
+  },
+  "iso": "2026-08-22T14:11:54Z",
   "rows": {
     "ledger": {
       "S1_no_change": "VALID",
@@ -28,7 +41,8 @@
       "S3_unbound_changed": "VALID",
       "S4_semantic_noop": "STALE",
       "S5_returned_to_original": "VALID",
-      "S6_cites_an_unobserved_source": "UNSUPPORTED"
+      "S6_cites_an_unobserved_source": "UNSUPPORTED",
+      "S7_witness_liveness_measurable": "VALID"
     },
     "ledger+gen": {
       "S1_no_change": "VALID",
@@ -36,7 +50,8 @@
       "S3_unbound_changed": "VALID",
       "S4_semantic_noop": "STALE",
       "S5_returned_to_original": "STALE",
-      "S6_cites_an_unobserved_source": "UNSUPPORTED"
+      "S6_cites_an_unobserved_source": "UNSUPPORTED",
+      "S7_witness_liveness_measurable": "STALE"
     },
     "inspeximus": {
       "S1_no_change": "VALID",
@@ -44,7 +59,8 @@
       "S3_unbound_changed": "VALID",
       "S4_semantic_noop": "STALE",
       "S5_returned_to_original": "VALID",
-      "S6_cites_an_unobserved_source": "UNSUPPORTED"
+      "S6_cites_an_unobserved_source": "UNSUPPORTED",
+      "S7_witness_liveness_measurable": "VALID"
     },
     "noreceipt": {
       "S1_no_change": "UNSUPPORTED",
@@ -52,7 +68,8 @@
       "S3_unbound_changed": "UNSUPPORTED",
       "S4_semantic_noop": "UNSUPPORTED",
       "S5_returned_to_original": "UNSUPPORTED",
-      "S6_cites_an_unobserved_source": "UNSUPPORTED"
+      "S6_cites_an_unobserved_source": "UNSUPPORTED",
+      "S7_witness_liveness_measurable": "UNSUPPORTED"
     },
     "_always_valid": {
       "S1_no_change": "VALID",
@@ -60,7 +77,8 @@
       "S3_unbound_changed": "VALID",
       "S4_semantic_noop": "VALID",
       "S5_returned_to_original": "VALID",
-      "S6_cites_an_unobserved_source": "VALID"
+      "S6_cites_an_unobserved_source": "VALID",
+      "S7_witness_liveness_measurable": "VALID"
     },
     "_always_stale": {
       "S1_no_change": "STALE",
@@ -68,7 +86,8 @@
       "S3_unbound_changed": "STALE",
       "S4_semantic_noop": "STALE",
       "S5_returned_to_original": "STALE",
-      "S6_cites_an_unobserved_source": "STALE"
+      "S6_cites_an_unobserved_source": "STALE",
+      "S7_witness_liveness_measurable": "STALE"
     },
     "_underbound": {
       "S1_no_change": "VALID",
@@ -76,7 +95,8 @@
       "S3_unbound_changed": "VALID",
       "S4_semantic_noop": "STALE",
       "S5_returned_to_original": "VALID",
-      "S6_cites_an_unobserved_source": "VALID"
+      "S6_cites_an_unobserved_source": "VALID",
+      "S7_witness_liveness_measurable": "VALID"
     },
     "_unscoped": {
       "S1_no_change": "VALID",
@@ -84,7 +104,8 @@
       "S3_unbound_changed": "STALE",
       "S4_semantic_noop": "STALE",
       "S5_returned_to_original": "VALID",
-      "S6_cites_an_unobserved_source": "VALID"
+      "S6_cites_an_unobserved_source": "VALID",
+      "S7_witness_liveness_measurable": "VALID"
     },
     "witness_measuring": {
       "S1_no_change": "VALID",
@@ -92,7 +113,54 @@
       "S3_unbound_changed": "VALID",
       "S4_semantic_noop": "STALE",
       "S5_returned_to_original": "VALID",
-      "S6_cites_an_unobserved_source": "UNSUPPORTED"
+      "S6_cites_an_unobserved_source": "UNSUPPORTED",
+      "S7_witness_liveness_measurable": "VALID",
+      "_diagnostics": {
+        "S1_no_change": {
+          "state": "UNMEASURED",
+          "basis": "unmeasurable",
+          "samples_at_decision": 0,
+          "why": "fewer than 2 repeat observations -- nothing to derive a threshold from"
+        },
+        "S2_bound_changed": {
+          "state": "UNMEASURED",
+          "basis": "unmeasurable",
+          "samples_at_decision": 0,
+          "why": "fewer than 2 repeat observations -- nothing to derive a threshold from"
+        },
+        "S3_unbound_changed": {
+          "state": "UNMEASURED",
+          "basis": "unmeasurable",
+          "samples_at_decision": 0,
+          "why": "fewer than 2 repeat observations -- nothing to derive a threshold from"
+        },
+        "S4_semantic_noop": {
+          "state": "UNMEASURED",
+          "basis": "unmeasurable",
+          "samples_at_decision": 0,
+          "why": "fewer than 2 repeat observations -- nothing to derive a threshold from"
+        },
+        "S5_returned_to_original": {
+          "state": "UNMEASURED",
+          "basis": "unmeasurable",
+          "samples_at_decision": 1,
+          "why": "fewer than 2 repeat observations -- nothing to derive a threshold from"
+        },
+        "S6_cites_an_unobserved_source": {
+          "state": "UNMEASURED",
+          "basis": "not-applicable",
+          "why": "receipt binds nothing, so there is no observation to be live about"
+        },
+        "S7_witness_liveness_measurable": {
+          "state": "FRESH",
+          "age_of_oldest_binding": 4.0,
+          "basis": "derived",
+          "samples_at_decision": 2,
+          "threshold": 6.0,
+          "max_normal_lag": 2.0,
+          "why": "3x the largest gap this row actually observed"
+        }
+      }
     }
   }
 }
