@@ -1,0 +1,899 @@
+#!/usr/bin/env python3
+"""Receipt binding — the one integrity cell that needs no assertion channel and no ranking.
+
+WHY THIS CELL EXISTS. The other cells in this folder assume a store of asserted facts: they correct a
+value, then try to undo or resurrect it. A store that only records what it OBSERVED — a read ledger, an
+audit trail, a provenance log — has no `add`, no `revert` and no "current value of a fact", so those
+cells are unsatisfiable rather than failed (@Stratogain, DanceNitra/ramr#1). Ranking is a separate
+exclusion: where lookup is by exact key there is no top-1 for an echo to retake.
+
+What such a store CAN answer is the question @safal207 stated as a contract on DanceNitra/ramr#2:
+
+    receipt = bind(answer, observed_source_ids + digests)
+    verify_receipt(receipt) -> VALID | STALE
+
+with STALE meaning **the consumer must not silently treat the original answer as freshly evidenced** —
+and, explicitly, `verify_receipt` must NOT decide whether the old answer is still semantically correct.
+It answers the narrower question: is this answer still backed by the same evidence it was bound to?
+
+That contract needs `observe`, `answer_with_receipt`, `verify_receipt` and nothing else. Provenance
+ledgers, audit logs, content-addressed caches and assertion-based memory systems can all satisfy it
+without being forced into one storage model.
+
+THE SCENARIOS ARE THE CONTROLS. A receipt checker that always says STALE is not a checker; one that
+fires on any change anywhere is not *binding* but alarming; and one that binds nothing at all
+reassures. Five scenarios have a required answer, and a backend earns the row only by getting all
+five right:
+
+    S1  nothing changes                          -> VALID    (it can say VALID at all)
+    S2  a source the answer was BOUND to changes -> STALE    (it detects what it exists to detect)
+    S3  a source it was NOT bound to changes     -> VALID    (bound, not merely alarmed)
+    S4  a bound source is rewritten to different
+        bytes with the same meaning              -> STALE    (evidence-bound, not meaning-bound)
+    S6  the answer cites a source that was
+        never observed                           -> NOT VALID (a receipt over nothing is not a pass)
+
+S3 and S6 are the two discriminating ones and they are mirrors. S3 catches a receipt bound to MORE
+than the answer used; S6 catches one bound to LESS, down to nothing. Only the first made a scenario
+fail before @Stratogain reported the second (DanceNitra/ramr#3) against the row built for his own
+store — an answer citing an unobserved file produced `{"sources": {}}` and verified VALID off an
+empty loop. S4 is @safal207's boundary made executable: a checker returning VALID there has started
+judging semantics, which the contract forbids.
+
+S6 is also the fail-closed rule of inspeximus 2.19.0 one level down. There, an artifact that
+declares no scope is sufficient for nothing. Here, a receipt that binds nothing is sufficient for
+nothing. The same statement about the same object at two granularities, and we shipped the first
+while leaving the second open.
+
+    S5  a bound source changes and then RETURNS
+        to its original bytes                    -> required PER PROFILE, and that is the point
+
+S5 is where the two contributions meet. On an append-only read ledger of 862 paths over 2,443
+records, 288 paths changed content and none returned to a previous digest; asked whether the return
+was even available, 194 of those 288 sit under git control, and 35 live in temp directories where it
+cannot happen at all. So the zero describes a working pattern rather than a property of files.
+Under `content_continuity` the return is VALID -- the bytes the answer was bound to are the bytes
+there now. Under `transition_continuity` it is STALE. Same ledger, same event, opposite verdicts,
+which is why `verifies` has to travel in the receipt. The stronger profile needs one extra field,
+`generation`, and an append-only ledger has it for free: **a repeated old digest in the source is a
+new observation of previous bytes; a revert command in a store is an operation on an assertion.**
+
+HONEST SCOPE. Minimal fixture, real files on disk as the sources, one query. It tells you whether the
+failure mode is POSSIBLE in your stack, not how often it happens. A backend reporting `unsupported` is
+making a statement about its interface, not failing: an audit log with no receipt primitive cannot be
+graded on one, and inventing an adapter for it would grade the invention.
+
+Usage:  python receipt_binding.py                # auto-detect
+        python receipt_binding.py ledger inspeximus
+"""
+import hashlib
+import json
+import os
+import sys
+import tempfile
+import time
+
+BOUND = "runbook.md"
+UNBOUND = "changelog.md"
+BOUND_V1 = b"The staging database host is db-old.internal\n"
+BOUND_V2 = b"The staging database host is db-new.internal\n"
+BOUND_SEMANTIC_NOOP = b"The staging  database   host is db-old.internal\n"   # same meaning, new bytes
+UNBOUND_V2 = b"Unrelated: bumped the linter to 4.2\n"
+QUERY = "what is the staging database host?"
+
+CHECKS = {}
+# Resolved dependency provenance, filled in by any backend that imports something and written
+# into the result. An artifact that cannot say what it measured cannot be re-run against it.
+_RESOLVED: dict = {}
+
+
+def _mkroot():
+    d = tempfile.mkdtemp()
+    for name, body in ((BOUND, BOUND_V1), (UNBOUND, b"Unrelated: initial changelog\n")):
+        with open(os.path.join(d, name), "wb") as f:
+            f.write(body)
+    return d
+
+
+def _write(root, name, body):
+    with open(os.path.join(root, name), "wb") as f:
+        f.write(body)
+
+
+# --------------------------------------------------------------------------------------------------
+# Backend 1: a minimal append-only observation ledger -- @Stratogain's class, ~25 lines.
+# It has no add(), no revert(), no ranking and no "current value of a fact". It satisfies the contract
+# anyway, which is the point of the cell.
+# --------------------------------------------------------------------------------------------------
+class Ledger:
+    """`profile` selects which predicate this store's receipts claim to support. Nothing about the
+    STORAGE changes between the two -- the generation is the count of observations already recorded
+    for that source, which an append-only ledger has for free."""
+
+    def __init__(self, root, profile="content_continuity"):
+        self.root, self.records, self.profile = root, [], profile
+
+    def observe(self, source_id):
+        raw = open(os.path.join(self.root, source_id), "rb").read()
+        self.records.append({"source_id": source_id, "digest": hashlib.sha256(raw).hexdigest(),
+                             "seq": len(self.records)})
+
+    def _generation(self, sid):
+        # READS ARE RECORDED BUT DO NOT ADVANCE THE GENERATION, and that distinction is the fix for
+        # what @Stratogain measured in #5: `verify_receipt` appended its own read under the real
+        # source id, so the pin had to be compared against `_generation(sid) - 1` -- the number of
+        # reads verification makes, written as a constant. It was right exactly once, and the second
+        # verification of an untouched source returned STALE.
+        #
+        # The store must still record the read; an append-only ledger that hides its reads is not
+        # append-only, and the refusal path already got this right with `source_id="__verify__"`.
+        # What was wrong was counting it. A generation is a count of OBSERVATIONS of the source, so
+        # a verification read is marked and skipped here, the read stays attributable to its source
+        # instead of being flattened into `__verify__`, and the -1 disappears rather than being
+        # tuned.
+        return sum(1 for r in self.records
+                   if r["source_id"] == sid and r.get("kind") != "verify")
+
+    def answer_with_receipt(self, source_ids):
+        """The answer is 'what these files said when last read'. The receipt binds it to exactly
+        those, and -- under the stronger profile -- to how many times they had been read by then."""
+        # NAME WHAT WAS NOT SEEN. The first version dropped an unobserved source silently, so an
+        # answer citing a file the ledger had never read produced `{"sources": {}}` and verified
+        # VALID off an empty loop -- @Stratogain, DanceNitra/ramr#3. It is `_unscoped` in the
+        # mirror: that one binds MORE than the answer used and alarms, this one binds LESS, down to
+        # nothing, and reassures. Both are the same sentence -- a check that never reaches its
+        # target reports something reassuring -- and only the alarming one made a scenario fail.
+        #
+        # It is also the fail-closed rule of inspeximus 2.19.0 one level down: an artifact that
+        # declares no scope is sufficient for nothing, so a receipt that binds nothing is
+        # sufficient for nothing. We built that rule for the artifact and left the receipt open.
+        #
+        # Raising would be the other fix and discards information the consumer wants. The unbound
+        # ids travel in the receipt instead.
+        want = set(PROFILES[self.profile]["scope"])
+        pinned, unobserved = {}, []
+        for sid in source_ids:
+            seen = [r for r in self.records if r["source_id"] == sid]
+            if not seen:
+                unobserved.append(sid)
+                continue
+            entry = {"digest": seen[-1]["digest"]}
+            if "generation" in want:
+                entry["generation"] = self._generation(sid)
+            pinned[sid] = entry
+        return ("what the runbook said when last read",
+                {"sources": pinned, "unobserved": unobserved,
+                 "commitment_scope": PROFILES[self.profile]["scope"],
+                 "verifies": PROFILES[self.profile]["verifies"], "profile": self.profile})
+
+    def verify_receipt(self, receipt):
+        # A receipt that binds nothing, or that omits a source the answer cited, cannot support the
+        # predicate it declares. Checked BEFORE the loop, because an empty loop returns VALID and
+        # that is the whole defect.
+        if receipt.get("unobserved") or not receipt.get("sources"):
+            # verifying is a read, and an append-only ledger records its reads even when the
+            # verdict is a refusal -- otherwise the store cannot show that a check happened.
+            self.records.append({"source_id": "__verify__", "digest": "unsupported",
+                                 "seq": len(self.records)})
+            return "UNSUPPORTED"
+        for sid, pin in receipt["sources"].items():
+            raw = open(os.path.join(self.root, sid), "rb").read()
+            now = hashlib.sha256(raw).hexdigest()
+            # re-observe, because verifying IS a read and an append-only ledger records its reads.
+            # `kind: verify` marks it as a read rather than an observation, so it stays in the log
+            # and out of the generation count -- see _generation.
+            self.records.append({"source_id": sid, "digest": now, "kind": "verify",
+                                 "seq": len(self.records)})
+            if now != pin["digest"]:
+                return "STALE"
+            if "generation" in pin and self._generation(sid) != pin["generation"]:
+                # same bytes, but the ledger saw the source move in between: content continuity
+                # holds and transition continuity does not. Same event, opposite verdicts.
+                return "STALE"
+        return "VALID"
+
+
+def _ledger(profile):
+    return lambda: _run(lambda root: Ledger(root, profile),
+                        observe=lambda b, sid: b.observe(sid),
+                        answer=lambda b, sids: b.answer_with_receipt(sids),
+                        verify=lambda b, r: b.verify_receipt(r))
+
+
+CHECKS["ledger"] = _ledger("content_continuity")
+CHECKS["ledger+gen"] = _ledger("transition_continuity")
+
+
+# --------------------------------------------------------------------------------------------------
+# Backend 2: inspeximus. witness(bind_sources=True) / verify_witness() were built from @safal207's own
+# OBSERVE->BIND->CAPTURE->VERIFY->USE framing, so this is a check of whether the implementation matches
+# the contract its framing produced -- not an independent invention of it.
+# --------------------------------------------------------------------------------------------------
+def check_inspeximus():
+    from inspeximus import Inspeximus
+    # WHAT THIS ROW MEASURED, recorded rather than assumed, and WHAT IT REQUIRES, stated rather
+    # than discovered as a TypeError.
+    #
+    # @Stratogain's run of this cell reported `inspeximus: not installed`, and that was the correct
+    # answer -- nothing here declared where the library comes from. This file has no
+    # sys.path.insert (erasure_cell.py in the same folder does), so it imports whatever the ambient
+    # environment provides. On the maintainer's machine that was an EDITABLE INSTALL pointing at an
+    # uncommitted working tree: pip reported 1.27.1, the module reported 2.20.0, same checkout, and
+    # the copy vendored in this repo never loaded at all.
+    #
+    # Pointing this row at the vendored copy is NOT the fix and would be a worse defect: vendored
+    # 2.5.0 exposes `witness()` taking no arguments, while the adapter below needs
+    # `witness(records=, bind_sources=)`. Forcing it would raise a TypeError that reads as a broken
+    # cell rather than an out-of-date dependency. So the row states its requirement and declines
+    # clearly when it is unmet, which is the difference between a reader knowing what to install
+    # and a reader seeing a stack trace.
+    import inspeximus as _ix
+    import inspect as _inspect
+    _origin = "unknown"
+    _file = getattr(_ix, "__file__", "") or ""
+    if os.path.abspath(_file).startswith(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))):
+        _origin = "vendored in this repo"
+    elif "site-packages" in _file:
+        _origin = "installed distribution"
+    else:
+        _origin = "local checkout outside this repo (not reproducible elsewhere)"
+    _RESOLVED["inspeximus"] = {"version": getattr(_ix, "__version__", "?"),
+                               "origin": _origin,
+                               "module": os.path.basename(os.path.dirname(_file))}
+    _need = _inspect.signature(Inspeximus.witness).parameters
+    if "records" not in _need or "bind_sources" not in _need:
+        _RESOLVED["inspeximus"]["unmet"] = "witness(records=, bind_sources=) required"
+        raise ImportError("inspeximus %s has witness%s; this row needs witness(records=, "
+                          "bind_sources=)" % (getattr(_ix, "__version__", "?"),
+                                              _inspect.signature(Inspeximus.witness)))
+
+    class Adapter:
+        def __init__(self, root):
+            self.root, self.ids = root, {}
+            self.m = Inspeximus(path=os.path.join(tempfile.mkdtemp(), "s.json"))
+
+        def observe(self, sid):
+            path = os.path.join(self.root, sid)
+            body = open(path, "rb").read().decode("utf-8", "replace").strip()
+            # NOTE for readers: inspeximus's own `observe()` is a DIFFERENT primitive -- a
+            # read-path contradiction check -- and passing the source through `meta` leaves
+            # `bind_sources` with nothing to re-read, so this cell reported "no receipt
+            # primitive" for a store that has one. The source must be the top-level `source`
+            # field, which is what check_sources/bind_sources actually read.
+            self.ids[sid] = self.m.remember(body, key=sid, source={"doc": path})
+
+        def answer_with_receipt(self, sids):
+            # SCOPE THE RECEIPT TO THE RECORDS THE ANSWER CAME FROM. The bare
+            # `witness(bind_sources=True)` pins EVERY source in the store, which answers
+            # "did anything in my world move" rather than "is this answer still evidenced" --
+            # and a receipt that fires on an unrelated file is not binding, it is alarming.
+            # This cost this cell two wrong verdicts before it was noticed: first
+            # "no receipt primitive" (source passed through meta), then a failed S3.
+            want = {self.ids[sid] for sid in sids if sid in self.ids}
+            hits = [h for h in (self.m.recall(QUERY, k=50) or []) if h.get("id") in want]
+            missing = [sid for sid in sids if sid not in self.ids]
+            if missing or not hits:
+                # Never fall back to a store-wide witness -- that is the defect the scoping exists
+                # to avoid -- and never mint a receipt over sources this store has no record of.
+                return ("what the runbook said when last read",
+                        {"unobserved": missing or list(sids), "_refuse": True})
+            w = self.m.witness(records=hits, bind_sources=True)
+            w["unobserved"] = []
+            return "what the runbook said when last read", w
+
+        def verify_receipt(self, w):
+            if w.get("_refuse") or w.get("unobserved"):
+                return "UNSUPPORTED"
+            v = self.m.verify_witness(w)
+            # The two answers are kept separate on purpose: digest_match is about the STORE,
+            # sources_match is about the WORLD. This cell asks only the second question, so a
+            # backend must not be marked STALE because its own store moved.
+            sm = v.get("sources_match")
+            if sm is None:
+                return "UNSUPPORTED"
+            return "VALID" if sm else "STALE"
+
+    return _run(Adapter, observe=lambda b, sid: b.observe(sid),
+                answer=lambda b, sids: b.answer_with_receipt(sids),
+                verify=lambda b, r: b.verify_receipt(r))
+CHECKS["inspeximus"] = check_inspeximus
+
+
+# --------------------------------------------------------------------------------------------------
+# Backend 3: a store with no receipt primitive. It must report unsupported -- never VALID. A store that
+# answers VALID because it has nothing to check with is the failure this cell is really about.
+# --------------------------------------------------------------------------------------------------
+def check_noreceipt():
+    class Adapter:
+        def __init__(self, root):
+            self.root, self.texts = root, []
+
+        def observe(self, sid):
+            self.texts.append(open(os.path.join(self.root, sid), "rb").read())
+
+        def answer_with_receipt(self, sids):
+            return "what the runbook said when last read", None      # no receipt exists
+
+        def verify_receipt(self, r):
+            return "UNSUPPORTED"
+
+    return _run(Adapter, observe=lambda b, sid: b.observe(sid),
+                answer=lambda b, sids: b.answer_with_receipt(sids),
+                verify=lambda b, r: b.verify_receipt(r))
+CHECKS["noreceipt"] = check_noreceipt
+
+
+# --------------------------------------------------------------------------------------------------
+# ADVERSARIAL CONTROLS. A cell whose every row passes has not shown that it can fail. These three are
+# wrong in three different ways, and each must be caught by a DIFFERENT scenario.
+# --------------------------------------------------------------------------------------------------
+def _constant(verdict):
+    class Adapter:
+        def __init__(self, root):
+            self.root = root
+
+        def observe(self, sid):
+            pass
+
+        def answer_with_receipt(self, sids):
+            return "", {}
+
+        def verify_receipt(self, r):
+            return verdict
+    return lambda: _run(Adapter, observe=lambda b, s: b.observe(s),
+                        answer=lambda b, s: b.answer_with_receipt(s),
+                        verify=lambda b, r: b.verify_receipt(r))
+
+
+CHECKS["_always_valid"] = _constant("VALID")     # must fail S2 and S4, and only those
+CHECKS["_always_stale"] = _constant("STALE")     # must fail S1 and S3, and only those
+
+
+def check_underbound():
+    """@Stratogain's control, and the mirror of `_unscoped`. This is the ledger EXACTLY as it was
+    written before his review: it pins the sources it happens to have observed and drops the rest
+    without saying so, so an answer citing an unobserved file yields an empty receipt that verifies
+    VALID off a loop with nothing in it. It passes S1-S5 identically to `ledger` and fails S6 alone,
+    which is what makes it a control rather than a straw backend -- the shipped row had this hole."""
+    class Adapter(Ledger):
+        def answer_with_receipt(self, source_ids):
+            pinned = {}
+            for sid in source_ids:
+                seen = [r for r in self.records if r["source_id"] == sid]
+                if seen:
+                    pinned[sid] = {"digest": seen[-1]["digest"]}
+            return "", {"sources": pinned, "commitment_scope": PROFILES[self.profile]["scope"],
+                        "verifies": PROFILES[self.profile]["verifies"], "profile": self.profile}
+
+        def verify_receipt(self, receipt):
+            for sid, pin in receipt["sources"].items():
+                raw = open(os.path.join(self.root, sid), "rb").read()
+                if hashlib.sha256(raw).hexdigest() != pin["digest"]:
+                    return "STALE"
+            return "VALID"
+    return _run(lambda root: Adapter(root, "content_continuity"),
+                observe=lambda b, s: b.observe(s),
+                answer=lambda b, s: b.answer_with_receipt(s),
+                verify=lambda b, r: b.verify_receipt(r))
+CHECKS["_underbound"] = check_underbound       # must fail S6 and ONLY S6
+
+
+def check_unscoped():
+    """The trap, checked in rather than remembered: a receipt bound to EVERY source in the store
+    instead of the ones the answer came from. It looks right on S1, S2 and S4 and is wrong about what
+    it measures -- "did anything in my world move" is not "is this answer still evidenced". Both of the
+    inspeximus adapter's first two attempts landed here, so it stays as a permanent control."""
+    class Adapter:
+        def __init__(self, root):
+            self.root, self.pinned = root, {}
+
+        def observe(self, sid):
+            raw = open(os.path.join(self.root, sid), "rb").read()
+            self.pinned[sid] = hashlib.sha256(raw).hexdigest()
+
+        def answer_with_receipt(self, sids):
+            return "", {"sources": dict(self.pinned)}          # every source, not just `sids`
+
+        def verify_receipt(self, r):
+            for sid, dig in r["sources"].items():
+                if hashlib.sha256(open(os.path.join(self.root, sid), "rb").read()).hexdigest() != dig:
+                    return "STALE"
+            return "VALID"
+    return _run(Adapter, observe=lambda b, s: b.observe(s),
+                answer=lambda b, s: b.answer_with_receipt(s),
+                verify=lambda b, r: b.verify_receipt(r))
+CHECKS["_unscoped"] = check_unscoped              # must fail S3 and ONLY S3
+
+
+def _run(make, observe, answer, verify, diagnostics=None):
+    """One backend through all five scenarios. Each scenario gets a FRESH root and a fresh backend, so
+    no scenario can inherit another's state -- a shared root is how S3 quietly becomes S2."""
+    out, diag = {}, {}
+    for name, mutate in (
+        ("S1_no_change", lambda root: None),
+        ("S2_bound_changed", lambda root: _write(root, BOUND, BOUND_V2)),
+        ("S3_unbound_changed", lambda root: _write(root, UNBOUND, UNBOUND_V2)),
+        ("S4_semantic_noop", lambda root: _write(root, BOUND, BOUND_SEMANTIC_NOOP)),
+        # S5 hands the backend to the mutation, because a read ledger only knows what it READ.
+        # The first version wrote B then A with nobody looking in between, and every backend
+        # correctly said VALID -- there was no transition to detect, only a file that ends where it
+        # started. That is the fixture failing to instantiate its own case, not the store missing
+        # it. A tool reads the file while it is B, which is exactly the world @Stratogain measured:
+        # 226 of 634 paths changed BECAUSE the same path is re-read over months.
+        ("S5_returned_to_original", lambda root, b: (_write(root, BOUND, BOUND_V2),
+                                                     observe(b, BOUND),
+                                                     _write(root, BOUND, BOUND_V1))),
+        # S6 is @Stratogain's, and it is the mirror of S3. S3 catches a receipt bound to MORE than
+        # the answer used, which alarms. S6 catches one bound to LESS -- down to nothing -- which
+        # reassures, and nothing in S1-S5 could reach it because every scenario observed every
+        # source before answering. On his store this is the ordinary case rather than the edge:
+        # the witness sits on 33.4% of tool calls, so an answer routinely cites files it never saw.
+        ("S6_cites_an_unobserved_source", lambda root: None),
+        # S7 exists because a state that never fires is a state nobody can check. Across S1-S6 the
+        # witness_measuring row reports UNMEASURED every time: the harness observes each source
+        # once, so no source has two gaps, and one gap is not a distribution. The body below
+        # observes the bound source twice MORE -- and since _run already observed it once, that is
+        # three observations and two gaps, which is exactly MIN_LAG_SAMPLES.
+        #
+        # REPORTED, not required. The point is the diagnostic field, not the verdict: nothing about
+        # the source changes here, so a content-continuity backend says VALID and a
+        # transition-continuity one has an opinion about a pure RE-READ, which is a question worth
+        # asking rather than a requirement worth imposing (see the PR note).
+        ("S7_witness_liveness_measurable", lambda root, b: (observe(b, BOUND), observe(b, BOUND))),
+    ):
+        root = _mkroot()
+        b = make(root)
+        observe(b, BOUND)
+        observe(b, UNBOUND)
+        if name == "S6_cites_an_unobserved_source":
+            _write(root, "never_read.md", b"A file the witness never saw\n")
+            _, receipt = answer(b, [BOUND, "never_read.md"])
+        else:
+            _, receipt = answer(b, [BOUND])    # bound to the runbook ONLY
+        try:
+            mutate(root, b)
+        except TypeError:
+            mutate(root)
+        out[name] = verify(b, receipt)
+        # A DIAGNOSTIC THAT ONLY REACHES stdout IS NOT IN THE ARTIFACT. S7 exists so the liveness
+        # state stops being permanently unexercised; if the state fires and the JSON does not say
+        # so, a reader of the file alone still cannot tell -- the same defect one level up, and the
+        # rule this repo already adopted in #4: say what you measured.
+        if diagnostics is not None:
+            d = diagnostics(b)
+            if d is not None:
+                diag[name] = d
+    if diag:
+        # Not a scenario name, so it never enters the table. `unsup` below counts scenario keys
+        # rather than every value in the row, which is what keeps that true.
+        out["_diagnostics"] = diag
+    return out
+
+
+# TWO PROFILES, and S5 is the whole reason they have to be declared rather than inferred.
+# @Stratogain's framing on anthropics/claude-code#34556: making S5 required would silently change
+# the predicate from CONTENT continuity to TRANSITION continuity, and those need different fields.
+# The two are indistinguishable from outside while returning opposite verdicts on the same event,
+# which is precisely why `verifies` has to be in the artifact.
+#
+# And his observation that makes the stronger profile cheap: an append-only ledger ALREADY has the
+# generation, because append order IS the generation. It is one more field in the receipt, not a
+# different storage model. Measured below rather than granted -- the `ledger` adapter derives its
+# generation from the record index it already keeps.
+# `verifies` IS A LIST HERE TOO. @Stratogain caught the asymmetry on anthropics/claude-code#34556:
+# inspeximus's `identifier_contract()` declares `verifies` as a list while this receipt declared it
+# as a string (the profile name), so a consumer holding both had to branch on TYPE to read one field
+# name. Defensible as stated -- a receipt is minted under one profile, an artifact can serve several
+# -- but the branch costs the consumer and a one-element list costs nothing. The profile name moved
+# to its own field rather than being smuggled through `verifies`, which was the deeper version of
+# the same complaint: one field carrying two kinds of thing.
+PROFILES = {
+    "content_continuity":    {"scope": ["source_id", "digest"],
+                              "verifies": ["answer_still_evidenced"],
+                              "means": "the answer is still backed by the same bytes",
+                              "S5": "VALID"},
+    "transition_continuity": {"scope": ["source_id", "digest", "generation"],
+                              "verifies": ["answer_still_evidenced", "source_never_moved"],
+                              "means": "and the source has not moved since the answer was bound",
+                              "S5": "STALE"},
+}
+
+# ---------------------------------------------------------------------------------------------
+# Backend: witness_measuring. @Stratogain's row.
+#
+# WHAT IT ADDS. Every other row here can answer "did the bound source move". None can answer
+# "was my witness running while it moved". On his store the witness is a PostToolUse hook
+# appending to a .jsonl, and it can stop -- a renamed script, a settings edit, a crash -- after
+# which "no observation for this source" and "this source was never read" are the same bytes.
+# He reported that as a FAIL OPEN on anthropics/claude-code#87783: substituting a non-existent
+# ledger path produced a confident answer.
+#
+# HOW IT FITS THE INTERFACE UNCHANGED. @DanceNitra's correction, arrived at by writing the row
+# rather than describing it: make(root) may return any object, so the backend carries its own
+# clock and its own lag history in the closure. The harness hands it nothing extra.
+#
+# THE ONE REAL CONSTRAINT, and it is the right one: the clock advances only on calls the harness
+# makes. A liveness row that invents its own elapsed time measures the fixture, not the store.
+#
+# ⚠️ AND THE HONEST PART, which is why this row is worth having rather than embarrassing:
+# within these six scenarios there is almost no lag history to derive a threshold from. The
+# harness observes BOUND once and UNBOUND once, so no source is observed TWICE except in S5.
+# One sample cannot support "3x the observed maximum" -- 3x a single value is not a distribution.
+# A row that answered "witness fresh" here would be reporting a vacuous truth: no measurement was
+# possible, and "no measurement" is not "measured fine".
+#
+# So the diagnostic has three states, not two, and the third is the common one here:
+#     UNMEASURED  fewer than MIN_LAG_SAMPLES repeat observations -- nothing to derive from
+#     FRESH       derived threshold exists and the newest observation is inside it
+#     STALE       derived threshold exists and the newest observation is outside it
+# This is the same split his gate carries as NO_LEDGER / UNMEASURED beside OBSERVED_FRESH, and
+# the reason it exists is the one both of you keep hitting: an accumulator whose provenance is
+# not carried beside its value.
+#
+# THRESHOLD PROVENANCE, from his 22.08 correction on this PR. His own ceiling was a chosen
+# constant wearing a derived name (2 h above a derived 72.9 min), and the flag saying "clamped"
+# could not tell WHICH side clamped -- on live data the FLOOR was binding, not the ceiling he was
+# defending. So this row reports `threshold_basis` explicitly: "derived" when it comes from the
+# row's own history, "unmeasurable" when there is no history. There is deliberately no floor and
+# no ceiling here: the moment one is added, this field has to grow a "clamped-at-floor" value or
+# the number silently stops being derived.
+# ---------------------------------------------------------------------------------------------
+MIN_LAG_SAMPLES = 2          # two gaps make a maximum; one makes an anecdote
+
+
+class WitnessMeasuring:
+    def __init__(self, root):
+        self.root = root
+        self.now = 0.0            # ticks; advanced ONLY by calls the harness makes
+        self.lags = []            # gaps between successive observations of the SAME source
+        self.seen = {}            # sid -> (observed_at, digest)
+        self.liveness = None      # the diagnostic, BESIDE the verdict, never inside it
+
+    # -- the clock advances here, and only here plus verify's re-read
+    def observe(self, sid):
+        body = open(os.path.join(self.root, sid), "rb").read()
+        prev = self.seen.get(sid)
+        if prev is not None:
+            gap = self.now - prev[0]
+            if gap > 0:
+                self.lags.append(gap)
+        self.seen[sid] = (self.now, hashlib.sha256(body).hexdigest())
+        self.now += 1.0
+        return body
+
+    def answer_with_receipt(self, sids):
+        """Pins digest AND observed_at. observed_at is what makes the liveness question askable
+        later: without it the consumer cannot tell a fresh binding from an ancient one."""
+        pinned, unobserved = {}, []
+        for sid in sids:
+            got = self.seen.get(sid)
+            if got is None:
+                unobserved.append(sid)          # NAME what was not seen; never drop it silently
+                continue
+            pinned[sid] = {"digest": got[1], "observed_at": got[0]}
+        return ("what the runbook said when last read",
+                {"sources": pinned, "unobserved": unobserved,
+                 "commitment_scope": ["source_id", "digest", "observed_at"],
+                 "verifies": ["answer_still_evidenced"],
+                 "profile": "content_continuity_with_witness_liveness"})
+
+    def _threshold(self):
+        # `samples_at_decision`, not `samples`: verify_receipt calls observe() while checking --
+        # verifying IS a read and an append-only ledger records its reads -- but that happens AFTER
+        # this function has run. So the object ends a scenario holding one more gap than the number
+        # it published. That is correct (report what you knew when you decided) and it took
+        # @DanceNitra a trace to see, which means the old name was doing the hiding.
+        """Derived from the row's OWN history or not derived at all. No floor, no ceiling: a
+        clamp would make the number a chosen constant without saying so."""
+        normal = [l for l in self.lags if l > 0]
+        if len(normal) < MIN_LAG_SAMPLES:
+            return None, {"basis": "unmeasurable", "samples_at_decision": len(normal),
+                          "why": "fewer than %d repeat observations -- nothing to derive a threshold from"
+                                 % MIN_LAG_SAMPLES}
+        ceiling = 3 * max(normal)
+        return ceiling, {"basis": "derived", "samples_at_decision": len(normal), "threshold": ceiling,
+                         "max_normal_lag": max(normal),
+                         "why": "3x the largest gap this row actually observed"}
+
+    def verify_receipt(self, receipt):
+        # Fail closed on an under-bound receipt, same rule as `ledger`: a receipt that binds
+        # nothing is sufficient for nothing.
+        if receipt.get("unobserved") or not receipt.get("sources"):
+            self.liveness = {"state": "UNMEASURED", "basis": "not-applicable",
+                             "why": "receipt binds nothing, so there is no observation to be live about"}
+            return "UNSUPPORTED"
+
+        # 1. THE DIAGNOSTIC, computed first and kept beside the verdict.
+        ceiling, basis = self._threshold()
+        if ceiling is None:
+            self.liveness = dict(state="UNMEASURED", **basis)
+        else:
+            worst = max(self.now - p["observed_at"] for p in receipt["sources"].values())
+            self.liveness = dict(state=("STALE" if worst > ceiling else "FRESH"),
+                                 age_of_oldest_binding=worst, **basis)
+
+        # 2. THE VERDICT, unchanged by the diagnostic. Liveness answers a different question and
+        #    collapsing it into VALID|STALE would teach the consumer to discount STALE.
+        for sid, pin in receipt["sources"].items():
+            body = open(os.path.join(self.root, sid), "rb").read()
+            now_digest = hashlib.sha256(body).hexdigest()
+            self.observe(sid)                 # verifying IS a read; the ledger records its reads
+            if now_digest != pin["digest"]:
+                return "STALE"
+        return "VALID"
+
+
+CHECKS["witness_measuring"] = lambda: _run(
+    WitnessMeasuring,
+    observe=lambda b, sid: b.observe(sid),
+    answer=lambda b, sids: b.answer_with_receipt(sids),
+    verify=lambda b, r: b.verify_receipt(r),
+    diagnostics=lambda b: b.liveness)
+
+
+REQUIRED = {"S1_no_change": "VALID", "S2_bound_changed": "STALE",
+            "S3_unbound_changed": "VALID", "S4_semantic_noop": "STALE"}
+# S6 has no single right answer, only a wrong one: a silent pass. STALE or UNSUPPORTED both say
+# "do not treat this as freshly evidenced", which is the whole contract.
+NOT_ALLOWED = {"S6_cites_an_unobserved_source": "VALID"}
+
+
+def main(argv):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    names = [a for a in argv[1:] if a in CHECKS] or list(CHECKS)
+    rows = {}
+    for n in names:
+        try:
+            rows[n] = CHECKS[n]()
+        except ImportError as e:
+            # KEEP THE REASON. check_inspeximus raises a sentence naming what is unmet
+            # ("...has witness(); this row needs witness(records=, bind_sources=)"), and this
+            # handler used to replace it with "not installed" -- said about a package that IS
+            # installed, just older than the row needs. The row's comment argues for exactly the
+            # opposite: the difference between a reader knowing what to install and a reader
+            # seeing a stack trace. The handler was throwing away the knowing.
+            rows[n] = {"skipped": str(e) or "not installed"}
+        except Exception as e:
+            rows[n] = {"error": f"{type(e).__name__}: {e}"[:200]}
+
+    hdr = ["S1_no_change", "S2_bound_changed", "S3_unbound_changed", "S4_semantic_noop",
+           "S5_returned_to_original", "S6_cites_an_unobserved_source",
+           "S7_witness_liveness_measurable"]
+    regressed = []
+    print(f"{'backend':12} " + " ".join(f"{h.split('_',1)[0]:>6}" for h in hdr) + "   honours the contract?")
+    for n, r in rows.items():
+        if "skipped" in r or "error" in r:
+            print(f"{n:12} {r.get('skipped') or r.get('error')}")
+            continue
+        ok = (all(r.get(k) == v for k, v in REQUIRED.items())
+              and all(r.get(k) != v for k, v in NOT_ALLOWED.items()))
+        # over SCENARIO keys, not over every value in the row: a row may now also carry
+        # `_diagnostics`, and "this backend has no receipt primitive" must not quietly become a
+        # statement about what else nobody happened to put in the dict.
+        unsup = all(r.get(h) == "UNSUPPORTED" for h in hdr)
+        verdict = ("no receipt primitive (correctly declined)" if unsup
+                   else ("yes" if ok else "NO -- " + ", ".join(
+                       [f"{k.split('_',1)[0]} said {r.get(k)}, wants {v}"
+                        for k, v in REQUIRED.items() if r.get(k) != v]
+                       + [f"{k.split('_',1)[0]} said {v}, which is a silent pass"
+                          for k, v in NOT_ALLOWED.items() if r.get(k) == v])))
+        # ASSERT the honest rows, do not merely print them. A live mutation that reverted the S6
+        # fix left every control green and the run exiting 0, because only the underscore backends
+        # were ever checked -- the regression showed up as the word "NO" in a table nobody diffs.
+        if not n.startswith("_") and not unsup and not ok:
+            regressed.append(f"{n}: {verdict}")
+        print(f"{n:12} " + " ".join(f"{str(r.get(h))[:6]:>6}" for h in hdr) + f"   {verdict}")
+
+    # The controls are ASSERTED, not merely displayed. A cell that prints a failing control and exits 0
+    # has reported nothing. Each adversarial backend must be caught by its OWN scenario -- if two of
+    # them fail on the same one, the other scenarios are not doing any work.
+    # What each mutant ACTUALLY breaks, not what would be tidy. Adding S6 made two of them fail a
+    # second scenario, and both are true: `_always_valid` says VALID to everything by construction,
+    # and `_unscoped` carries the under-binding hole as well because it never names an unobserved
+    # source either. The property that matters survives -- `_underbound` fails S6 and NOTHING else,
+    # which is what separates it from `_unscoped`, exactly as S3 separates `_unscoped` from the
+    # honest ledger.
+    ctl = {"_always_valid": {"S2_bound_changed", "S4_semantic_noop",
+                             "S6_cites_an_unobserved_source"},
+           "_always_stale": {"S1_no_change", "S3_unbound_changed"},
+           "_unscoped": {"S3_unbound_changed", "S6_cites_an_unobserved_source"},
+           "_underbound": {"S6_cites_an_unobserved_source"}}
+    bad = []
+    for name, expect_fail in ctl.items():
+        r = rows.get(name)
+        if not isinstance(r, dict) or "error" in r or "skipped" in r:
+            bad.append(f"{name}: did not run")
+            continue
+        got = ({k for k, v in REQUIRED.items() if r.get(k) != v}
+               | {k for k, v in NOT_ALLOWED.items() if r.get(k) == v})
+        if got != expect_fail:
+            bad.append(f"{name} fails {sorted(got) or ['nothing']}, must fail exactly {sorted(expect_fail)}")
+    # S5 IS NOW REQUIRED -- per profile. It stopped being an open question the moment the predicate
+    # was declared: under content continuity the return IS valid, under transition continuity it is
+    # not, and the same store gives both. If the two ever agree, the `generation` field has stopped
+    # doing anything and the declaration has become decoration.
+    # SOURCE IDENTITY, because source_id IS the identity in this contract and a fold on it merges
+    # two files into one receipt entry. @Stratogain: his path fold is toLowerCase(), correct on
+    # Windows and wrong on Linux the moment the same ledger runs there. SloNN reported the Unicode
+    # half at basicmachines-co/basic-memory#1275 -- NFC and NFD forms of one visible filename
+    # minting two entities, or one where there should be two. Tested on the NFC/NFD pair because
+    # both forms can coexist on disk, where two case variants cannot on Windows.
+    import unicodedata
+    idroot = _mkroot()
+    nfc = unicodedata.normalize("NFC", "café.md")
+    nfd = unicodedata.normalize("NFD", "café.md")
+    ident, demo = [], False
+    if nfc != nfd:
+        _write(idroot, nfc, b"one\n")
+        _write(idroot, nfd, b"two\n")
+        lg2 = Ledger(idroot)
+        try:
+            lg2.observe(nfc)
+            lg2.observe(nfd)
+            _, rc = lg2.answer_with_receipt([nfc, nfd])
+            # (1) a DEFECT if it fires: this cell must never fold a source id.
+            if len(rc["sources"]) != 2:
+                ident.append(f"two distinct source ids collapsed to {len(rc['sources'])}")
+            # (2) a DEMONSTRATION, not a defect: an adapter that normalises WOULD merge these two,
+            # so the trap is real for every adapter rather than hypothetical. Reported separately,
+            # because printing it as a failure makes a true statement look like our bug.
+            demo = len({unicodedata.normalize("NFC", k) for k in rc["sources"]}) == 1
+        except OSError:
+            demo = False
+            ident.append("SKIPPED: this filesystem will not hold both forms")
+    print("\nidentity: "
+          + ("the cell keeps two distinct source ids distinct" if not ident
+             else "BROKEN -- " + "; ".join(ident))
+          + ("   (an NFC-normalising adapter would merge exactly these two: "
+             "basicmachines-co/basic-memory#1275, reported by SloNN)" if demo else ""))
+
+    # TYPE CONSISTENCY, checked rather than agreed. The asymmetry @Stratogain found existed because
+    # two artifacts used one field name for two shapes and nothing objected. "Pick one and write it
+    # down" only survives if something fails when it drifts back.
+    shape = []
+    for name, prof in PROFILES.items():
+        for field in ("scope", "verifies"):
+            if not isinstance(prof.get(field), list) or not prof[field]:
+                shape.append(f"PROFILES[{name}][{field}] is {type(prof.get(field)).__name__}, "
+                             f"must be a non-empty list")
+    probe_root = _mkroot()
+    lg = Ledger(probe_root, "content_continuity")
+    lg.observe(BOUND)
+    _, rcpt = lg.answer_with_receipt([BOUND])
+    for field in ("commitment_scope", "verifies"):
+        if not isinstance(rcpt.get(field), list):
+            shape.append(f"a minted receipt's `{field}` is {type(rcpt.get(field)).__name__}, "
+                         f"must be a list -- a consumer should never branch on type to read a field")
+    if not isinstance(rcpt.get("profile"), str):
+        shape.append("the profile name must travel in its own field, not inside `verifies`")
+    print("\nshape: " + ("`commitment_scope` and `verifies` are lists on every artifact, and the "
+                          "profile name has its own field" if not shape
+                          else "BROKEN -- " + "; ".join(shape)))
+
+    bad_profiles = list(shape)
+    a, b_ = rows.get("ledger"), rows.get("ledger+gen")
+    if isinstance(a, dict) and isinstance(b_, dict) and "error" not in a and "error" not in b_:
+        for name, r in (("content_continuity", a), ("transition_continuity", b_)):
+            want = PROFILES[name]["S5"]
+            if r.get("S5_returned_to_original") != want:
+                bad_profiles.append(f"{name} S5 = {r.get('S5_returned_to_original')}, wants {want}")
+        if a.get("S5_returned_to_original") == b_.get("S5_returned_to_original"):
+            bad_profiles.append("the two profiles AGREE on S5 -- `generation` is doing nothing")
+        for k in ("S1_no_change", "S2_bound_changed", "S3_unbound_changed", "S4_semantic_noop"):
+            if a.get(k) != b_.get(k):
+                bad_profiles.append(f"the profiles differ on {k}; they must differ ONLY on S5")
+    else:
+        bad_profiles.append("one of the two profiles did not run")
+    print("\nprofiles: " + ("the same store returns opposite S5 verdicts under the two declared "
+                            "predicates, differs from it elsewhere only on S7 -- a pure re-read, "
+                            "which is a transition question by construction -- and agrees on "
+                            "everything required, which is why `verifies` has to be in the receipt"
+                            if not bad_profiles
+                            else "BROKEN -- " + "; ".join(bad_profiles)))
+
+    # HOW MANY TIMES CAN A RECEIPT BE READ? Measured, because the answer turned out not to be
+    # "as many as you like". Found while probing S7.
+    #
+    # `verify_receipt` records its own read, which is right: an append-only store that hides its
+    # reads is not append-only. It then compares `self._generation(sid) - 1` against the pin, and
+    # that -1 is the number of reads made by verification, written as a constant. It is correct
+    # exactly once.
+    #
+    # Measured below on a source nothing touches between reads. The second read of the SAME receipt
+    # reports the source as having moved, and nothing moved.
+    #
+    # In this file's own vocabulary: S1_no_change is REQUIRED to be VALID, and under transition
+    # continuity it is VALID only because `_run` calls verify exactly once. The store's correctness
+    # rests on a call count in the harness -- the same shape as the defect this fixture exists to
+    # catch, one level down.
+    #
+    # The refusal path in that same function already gets this right: it appends
+    # `source_id="__verify__"`, which `_generation(sid)` does not count. The success path appends
+    # under the real sid. One function, two rules for recording its own read.
+    #
+    # NOT folded into the exit status, deliberately. Excluding verification reads from `generation`
+    # changes what `ledger+gen` answers on a re-verify -- a change of PREDICATE, the exact move S5
+    # exists to make impossible to do quietly. Reported with a number instead, so the decision gets
+    # made rather than inherited.
+    reads = {}
+    for _prof in PROFILES:
+        _lg = Ledger(_mkroot(), _prof)
+        _lg.observe(BOUND)
+        _, _rc = _lg.answer_with_receipt([BOUND])
+        reads[_prof] = [_lg.verify_receipt(_rc) for _ in range(3)]   # the source is never touched
+    # FOLDED INTO THE EXIT STATUS, now that the defect it found is fixed. #5 deliberately left this
+    # measured-but-not-asserted, because asserting it while `_generation` still counted verification
+    # reads would have changed what `ledger+gen` answers on a re-verify without saying so -- exactly
+    # the quiet predicate change S5 exists to prevent. The predicate change has now been made
+    # explicitly and argued in `_generation`, so the measurement becomes a control that can fail:
+    # verification is a read, reads do not move the source, therefore verifying an untouched source
+    # any number of times must return VALID every time, under BOTH profiles.
+    bad_reads = [f"{p}: {v}" for p, v in reads.items() if any(x != "VALID" for x in v)]
+    print("\nreads: " + ("; ".join(f"{p}: {len(v)}/{len(v)} VALID" for p, v in reads.items())
+                         + "  -- verification is idempotent on an untouched source"
+                         if not bad_reads
+                         else "BROKEN -- " + "; ".join(bad_reads)))
+
+    print("\nbackends: " + ("every non-adversarial backend honours the contract"
+                            if not regressed else "REGRESSED -- " + "; ".join(regressed)))
+
+    print("\ncontrols: " + ("all three adversarial backends fail exactly the scenario they should"
+                            if not bad else "BROKEN -- " + "; ".join(bad)))
+
+    print("\nS1-S4 are required of every backend. S5 is required PER PROFILE, and it is the reason")
+    print("the profiles exist: the same ledger returns VALID under content continuity and STALE")
+    print("under transition continuity for the same event. Making S5 universally required would")
+    print("silently change which predicate the cell tests -- and the field it needs is `generation`,")
+    print("which an append-only ledger already has, because append order IS the generation. One")
+    print("extra field in the receipt, not a different storage model.")
+    print("A repeated old digest is a new observation of previous bytes; a revert command in a store")
+    print("is an operation on an assertion. The cell now tells them apart instead of declining to.")
+
+    # WHAT THIS FILE IS, beside what it found. Two things were indistinguishable in the artifact
+    # until a contributor's run made us look:
+    #   * a FILTERED run writes the same schema with fewer rows. The console is loud about it --
+    #     exit 1, "controls: BROKEN" -- but the JSON was byte-shaped like a full green run, with
+    #     the maintainer's own backend surviving and every adversarial control gone. That is
+    #     indistinguishable from cherry-picking by anyone reading the file alone.
+    #   * the resolved dependency was undeclared, so the `inspeximus` row described one machine.
+    # `selected` is None when every backend ran, so "all of them" and "these happen to be all of
+    # them today" stay different statements.
+    _failed = bool(bad or bad_profiles or regressed or ident or bad_reads)
+    out = {"fixture": "receipt_binding", "bound_source": BOUND, "unbound_source": UNBOUND,
+           "query": QUERY, "required": REQUIRED,
+           "argv": list(argv[1:]),
+           "selected": (names if len(names) != len(CHECKS) else None),
+           # `unfiltered` is what `complete` has been measuring: no CLI filter was applied. That
+           # is not the same statement as "every backend ran", and this artifact is where the gap
+           # shows. A machine whose ambient `inspeximus` predates witness(records=, bind_sources=)
+           # gets that row declining correctly -- and a file reporting `complete: true` with
+           # `resolved: {}` and one row holding {"skipped": ...}. Which is not a rare machine:
+           # the copy vendored here is 2.5.0, so it is every contributor who has not installed a
+           # recent one, CI included.
+           #
+           # Same shape as the filtered-run case #4 fixed, one step further in: there the row was
+           # ABSENT and the count gave it away, here the row is PRESENT and empty of verdicts, so
+           # counting cannot.
+           #
+           # Both fields, not one renamed: consumers already read `complete`, and quietly changing
+           # what a published field means is the move this whole cell argues against.
+           "unfiltered": len(names) == len(CHECKS),
+           "complete": len(names) == len(CHECKS) and all(
+               isinstance(r, dict) and "skipped" not in r and "error" not in r
+               for r in rows.values()),
+           "exit_status": 1 if _failed else 0,
+           "resolved": dict(_RESOLVED), "reads_before_stale": reads,
+           "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "rows": rows}
+    d = os.path.join(os.path.dirname(__file__) or ".", "results")
+    os.makedirs(d, exist_ok=True)
+    p = os.path.join(d, "receipt_binding.json")
+    json.dump(out, open(p, "w", encoding="utf-8"), indent=2)
+    print(f"\nreceipt -> {p}")
+    return 1 if _failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))
