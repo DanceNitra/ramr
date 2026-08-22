@@ -837,7 +837,24 @@ def main(argv):
            "query": QUERY, "required": REQUIRED,
            "argv": list(argv[1:]),
            "selected": (names if len(names) != len(CHECKS) else None),
-           "complete": len(names) == len(CHECKS),
+           # `unfiltered` is what `complete` has been measuring: no CLI filter was applied. That
+           # is not the same statement as "every backend ran", and this artifact is where the gap
+           # shows. A machine whose ambient `inspeximus` predates witness(records=, bind_sources=)
+           # gets that row declining correctly -- and a file reporting `complete: true` with
+           # `resolved: {}` and one row holding {"skipped": ...}. Which is not a rare machine:
+           # the copy vendored here is 2.5.0, so it is every contributor who has not installed a
+           # recent one, CI included.
+           #
+           # Same shape as the filtered-run case #4 fixed, one step further in: there the row was
+           # ABSENT and the count gave it away, here the row is PRESENT and empty of verdicts, so
+           # counting cannot.
+           #
+           # Both fields, not one renamed: consumers already read `complete`, and quietly changing
+           # what a published field means is the move this whole cell argues against.
+           "unfiltered": len(names) == len(CHECKS),
+           "complete": len(names) == len(CHECKS) and all(
+               isinstance(r, dict) and "skipped" not in r and "error" not in r
+               for r in rows.values()),
            "exit_status": 1 if _failed else 0,
            "resolved": dict(_RESOLVED), "reads_before_stale": reads,
            "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "rows": rows}
