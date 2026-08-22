@@ -421,6 +421,133 @@ PROFILES = {
                               "S5": "STALE"},
 }
 
+# ---------------------------------------------------------------------------------------------
+# Backend: witness_measuring. @Stratogain's row.
+#
+# WHAT IT ADDS. Every other row here can answer "did the bound source move". None can answer
+# "was my witness running while it moved". On his store the witness is a PostToolUse hook
+# appending to a .jsonl, and it can stop -- a renamed script, a settings edit, a crash -- after
+# which "no observation for this source" and "this source was never read" are the same bytes.
+# He reported that as a FAIL OPEN on anthropics/claude-code#87783: substituting a non-existent
+# ledger path produced a confident answer.
+#
+# HOW IT FITS THE INTERFACE UNCHANGED. @DanceNitra's correction, arrived at by writing the row
+# rather than describing it: make(root) may return any object, so the backend carries its own
+# clock and its own lag history in the closure. The harness hands it nothing extra.
+#
+# THE ONE REAL CONSTRAINT, and it is the right one: the clock advances only on calls the harness
+# makes. A liveness row that invents its own elapsed time measures the fixture, not the store.
+#
+# ⚠️ AND THE HONEST PART, which is why this row is worth having rather than embarrassing:
+# within these six scenarios there is almost no lag history to derive a threshold from. The
+# harness observes BOUND once and UNBOUND once, so no source is observed TWICE except in S5.
+# One sample cannot support "3x the observed maximum" -- 3x a single value is not a distribution.
+# A row that answered "witness fresh" here would be reporting a vacuous truth: no measurement was
+# possible, and "no measurement" is not "measured fine".
+#
+# So the diagnostic has three states, not two, and the third is the common one here:
+#     UNMEASURED  fewer than MIN_LAG_SAMPLES repeat observations -- nothing to derive from
+#     FRESH       derived threshold exists and the newest observation is inside it
+#     STALE       derived threshold exists and the newest observation is outside it
+# This is the same split his gate carries as NO_LEDGER / UNMEASURED beside OBSERVED_FRESH, and
+# the reason it exists is the one both of you keep hitting: an accumulator whose provenance is
+# not carried beside its value.
+#
+# THRESHOLD PROVENANCE, from his 22.08 correction on this PR. His own ceiling was a chosen
+# constant wearing a derived name (2 h above a derived 72.9 min), and the flag saying "clamped"
+# could not tell WHICH side clamped -- on live data the FLOOR was binding, not the ceiling he was
+# defending. So this row reports `threshold_basis` explicitly: "derived" when it comes from the
+# row's own history, "unmeasurable" when there is no history. There is deliberately no floor and
+# no ceiling here: the moment one is added, this field has to grow a "clamped-at-floor" value or
+# the number silently stops being derived.
+# ---------------------------------------------------------------------------------------------
+MIN_LAG_SAMPLES = 2          # two gaps make a maximum; one makes an anecdote
+
+
+class WitnessMeasuring:
+    def __init__(self, root):
+        self.root = root
+        self.now = 0.0            # ticks; advanced ONLY by calls the harness makes
+        self.lags = []            # gaps between successive observations of the SAME source
+        self.seen = {}            # sid -> (observed_at, digest)
+        self.liveness = None      # the diagnostic, BESIDE the verdict, never inside it
+
+    # -- the clock advances here, and only here plus verify's re-read
+    def observe(self, sid):
+        body = open(os.path.join(self.root, sid), "rb").read()
+        prev = self.seen.get(sid)
+        if prev is not None:
+            gap = self.now - prev[0]
+            if gap > 0:
+                self.lags.append(gap)
+        self.seen[sid] = (self.now, hashlib.sha256(body).hexdigest())
+        self.now += 1.0
+        return body
+
+    def answer_with_receipt(self, sids):
+        """Pins digest AND observed_at. observed_at is what makes the liveness question askable
+        later: without it the consumer cannot tell a fresh binding from an ancient one."""
+        pinned, unobserved = {}, []
+        for sid in sids:
+            got = self.seen.get(sid)
+            if got is None:
+                unobserved.append(sid)          # NAME what was not seen; never drop it silently
+                continue
+            pinned[sid] = {"digest": got[1], "observed_at": got[0]}
+        return ("what the runbook said when last read",
+                {"sources": pinned, "unobserved": unobserved,
+                 "commitment_scope": ["source_id", "digest", "observed_at"],
+                 "verifies": ["answer_still_evidenced"],
+                 "profile": "content_continuity_with_witness_liveness"})
+
+    def _threshold(self):
+        """Derived from the row's OWN history or not derived at all. No floor, no ceiling: a
+        clamp would make the number a chosen constant without saying so."""
+        normal = [l for l in self.lags if l > 0]
+        if len(normal) < MIN_LAG_SAMPLES:
+            return None, {"basis": "unmeasurable", "samples": len(normal),
+                          "why": "fewer than %d repeat observations -- nothing to derive a threshold from"
+                                 % MIN_LAG_SAMPLES}
+        ceiling = 3 * max(normal)
+        return ceiling, {"basis": "derived", "samples": len(normal), "threshold": ceiling,
+                         "max_normal_lag": max(normal),
+                         "why": "3x the largest gap this row actually observed"}
+
+    def verify_receipt(self, receipt):
+        # Fail closed on an under-bound receipt, same rule as `ledger`: a receipt that binds
+        # nothing is sufficient for nothing.
+        if receipt.get("unobserved") or not receipt.get("sources"):
+            self.liveness = {"state": "UNMEASURED", "basis": "not-applicable",
+                             "why": "receipt binds nothing, so there is no observation to be live about"}
+            return "UNSUPPORTED"
+
+        # 1. THE DIAGNOSTIC, computed first and kept beside the verdict.
+        ceiling, basis = self._threshold()
+        if ceiling is None:
+            self.liveness = dict(state="UNMEASURED", **basis)
+        else:
+            worst = max(self.now - p["observed_at"] for p in receipt["sources"].values())
+            self.liveness = dict(state=("STALE" if worst > ceiling else "FRESH"),
+                                 age_of_oldest_binding=worst, **basis)
+
+        # 2. THE VERDICT, unchanged by the diagnostic. Liveness answers a different question and
+        #    collapsing it into VALID|STALE would teach the consumer to discount STALE.
+        for sid, pin in receipt["sources"].items():
+            body = open(os.path.join(self.root, sid), "rb").read()
+            now_digest = hashlib.sha256(body).hexdigest()
+            self.observe(sid)                 # verifying IS a read; the ledger records its reads
+            if now_digest != pin["digest"]:
+                return "STALE"
+        return "VALID"
+
+
+CHECKS["witness_measuring"] = lambda: _run(
+    WitnessMeasuring,
+    observe=lambda b, sid: b.observe(sid),
+    answer=lambda b, sids: b.answer_with_receipt(sids),
+    verify=lambda b, r: b.verify_receipt(r))
+
+
 REQUIRED = {"S1_no_change": "VALID", "S2_bound_changed": "STALE",
             "S3_unbound_changed": "VALID", "S4_semantic_noop": "STALE"}
 # S6 has no single right answer, only a wrong one: a silent pass. STALE or UNSUPPORTED both say
