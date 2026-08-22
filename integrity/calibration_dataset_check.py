@@ -125,7 +125,7 @@ class Report:
 
 def check_dataset(path, sha256=None, label_field="verdict", trigger_field="rejection_reason",
                   expect_families=None, allowed_fields=None, forbidden_fields=None,
-                  against=None, rep=None):
+                  against=None, truncation_marker=None, expect_truncated=None, rep=None):
     rep = rep or Report()
     raw, records, bad = load(path)
     print("dataset: %s  %d bytes, %d records\n" % (os.path.basename(path), len(raw), len(records)))
@@ -174,6 +174,26 @@ def check_dataset(path, sha256=None, label_field="verdict", trigger_field="rejec
         rep.unverifiable("trigger families",
                          "no %r field: the labelling policy left no fingerprint, so the labels "
                          "cannot be audited without re-running inference" % trigger_field)
+
+    # ---- 3b. a document's cross-reference must resolve IN THE DATA ---------------------------
+    # Found on the 1591 dataset while writing this. SCHEMA warns not to run character-length rules on
+    # the published `response` field because three records are truncated at 500, and names them by
+    # id. Two of the three ids are right. The third names a record that is NOT truncated and belongs
+    # to a different heuristic family, while the record that IS truncated is not listed. Excluding by
+    # that table therefore drops a healthy record and keeps a truncated one -- the opposite of what
+    # the warning intends. A prose warning cannot check its own ids against the file; this can.
+    if truncation_marker:
+        actual = {r.get("request_id") for r in records
+                  if truncation_marker in (r.get("response") or "")}
+        rep.note("records carrying the truncation marker", "%d: %s"
+                 % (len(actual), ", ".join(sorted(x for x in actual if x))))
+        if expect_truncated is not None:
+            want = set(expect_truncated)
+            rep.ok("the documented truncated ids are the truncated records",
+                   actual == want,
+                   "documented-but-not-truncated: %s | truncated-but-undocumented: %s"
+                   % (", ".join(sorted(want - actual)) or "none",
+                      ", ".join(sorted(actual - want)) or "none"))
 
     # ---- 4. revision diff, BY CONTENT --------------------------------------------------------
     if against:
@@ -279,6 +299,10 @@ def main(argv=None):
     ap.add_argument("--allowed-field", action="append", default=[])
     ap.add_argument("--forbidden-field", action="append", default=[])
     ap.add_argument("--against", help="an earlier revision, diffed BY CONTENT")
+    ap.add_argument("--truncation-marker",
+                    help="a suffix a publisher appends to truncated fields")
+    ap.add_argument("--expect-truncated", action="append", default=[], metavar="ID",
+                    help="an id a document CLAIMS is truncated; checked against the data")
     ap.add_argument("--json", help="write the report here")
     ap.add_argument("--self-test", action="store_true", help="prove every check can fail")
     a = ap.parse_args(argv)
@@ -301,7 +325,9 @@ def main(argv=None):
     rep = check_dataset(a.data, sha256=a.sha256, label_field=a.label_field,
                         trigger_field=a.trigger_field, expect_families=fams or None,
                         allowed_fields=a.allowed_field or None,
-                        forbidden_fields=a.forbidden_field or None, against=a.against)
+                        forbidden_fields=a.forbidden_field or None, against=a.against,
+                        truncation_marker=a.truncation_marker,
+                        expect_truncated=a.expect_truncated or None)
     rep.render()
     if a.json:
         json.dump({"data": a.data, "rows": [{"status": s, "check": n, "detail": d}
