@@ -389,10 +389,10 @@ def check_unscoped():
 CHECKS["_unscoped"] = check_unscoped              # must fail S3 and ONLY S3
 
 
-def _run(make, observe, answer, verify):
+def _run(make, observe, answer, verify, diagnostics=None):
     """One backend through all five scenarios. Each scenario gets a FRESH root and a fresh backend, so
     no scenario can inherit another's state -- a shared root is how S3 quietly becomes S2."""
-    out = {}
+    out, diag = {}, {}
     for name, mutate in (
         ("S1_no_change", lambda root: None),
         ("S2_bound_changed", lambda root: _write(root, BOUND, BOUND_V2)),
@@ -413,6 +413,17 @@ def _run(make, observe, answer, verify):
         # source before answering. On his store this is the ordinary case rather than the edge:
         # the witness sits on 33.4% of tool calls, so an answer routinely cites files it never saw.
         ("S6_cites_an_unobserved_source", lambda root: None),
+        # S7 exists because a state that never fires is a state nobody can check. Across S1-S6 the
+        # witness_measuring row reports UNMEASURED every time: the harness observes each source
+        # once, so no source has two gaps, and one gap is not a distribution. The body below
+        # observes the bound source twice MORE -- and since _run already observed it once, that is
+        # three observations and two gaps, which is exactly MIN_LAG_SAMPLES.
+        #
+        # REPORTED, not required. The point is the diagnostic field, not the verdict: nothing about
+        # the source changes here, so a content-continuity backend says VALID and a
+        # transition-continuity one has an opinion about a pure RE-READ, which is a question worth
+        # asking rather than a requirement worth imposing (see the PR note).
+        ("S7_witness_liveness_measurable", lambda root, b: (observe(b, BOUND), observe(b, BOUND))),
     ):
         root = _mkroot()
         b = make(root)
@@ -428,6 +439,18 @@ def _run(make, observe, answer, verify):
         except TypeError:
             mutate(root)
         out[name] = verify(b, receipt)
+        # A DIAGNOSTIC THAT ONLY REACHES stdout IS NOT IN THE ARTIFACT. S7 exists so the liveness
+        # state stops being permanently unexercised; if the state fires and the JSON does not say
+        # so, a reader of the file alone still cannot tell -- the same defect one level up, and the
+        # rule this repo already adopted in #4: say what you measured.
+        if diagnostics is not None:
+            d = diagnostics(b)
+            if d is not None:
+                diag[name] = d
+    if diag:
+        # Not a scenario name, so it never enters the table. `unsup` below counts scenario keys
+        # rather than every value in the row, which is what keeps that true.
+        out["_diagnostics"] = diag
     return out
 
 
@@ -539,15 +562,20 @@ class WitnessMeasuring:
                  "profile": "content_continuity_with_witness_liveness"})
 
     def _threshold(self):
+        # `samples_at_decision`, not `samples`: verify_receipt calls observe() while checking --
+        # verifying IS a read and an append-only ledger records its reads -- but that happens AFTER
+        # this function has run. So the object ends a scenario holding one more gap than the number
+        # it published. That is correct (report what you knew when you decided) and it took
+        # @DanceNitra a trace to see, which means the old name was doing the hiding.
         """Derived from the row's OWN history or not derived at all. No floor, no ceiling: a
         clamp would make the number a chosen constant without saying so."""
         normal = [l for l in self.lags if l > 0]
         if len(normal) < MIN_LAG_SAMPLES:
-            return None, {"basis": "unmeasurable", "samples": len(normal),
+            return None, {"basis": "unmeasurable", "samples_at_decision": len(normal),
                           "why": "fewer than %d repeat observations -- nothing to derive a threshold from"
                                  % MIN_LAG_SAMPLES}
         ceiling = 3 * max(normal)
-        return ceiling, {"basis": "derived", "samples": len(normal), "threshold": ceiling,
+        return ceiling, {"basis": "derived", "samples_at_decision": len(normal), "threshold": ceiling,
                          "max_normal_lag": max(normal),
                          "why": "3x the largest gap this row actually observed"}
 
@@ -583,7 +611,8 @@ CHECKS["witness_measuring"] = lambda: _run(
     WitnessMeasuring,
     observe=lambda b, sid: b.observe(sid),
     answer=lambda b, sids: b.answer_with_receipt(sids),
-    verify=lambda b, r: b.verify_receipt(r))
+    verify=lambda b, r: b.verify_receipt(r),
+    diagnostics=lambda b: b.liveness)
 
 
 REQUIRED = {"S1_no_change": "VALID", "S2_bound_changed": "STALE",
@@ -603,13 +632,20 @@ def main(argv):
     for n in names:
         try:
             rows[n] = CHECKS[n]()
-        except ImportError:
-            rows[n] = {"skipped": "not installed"}
+        except ImportError as e:
+            # KEEP THE REASON. check_inspeximus raises a sentence naming what is unmet
+            # ("...has witness(); this row needs witness(records=, bind_sources=)"), and this
+            # handler used to replace it with "not installed" -- said about a package that IS
+            # installed, just older than the row needs. The row's comment argues for exactly the
+            # opposite: the difference between a reader knowing what to install and a reader
+            # seeing a stack trace. The handler was throwing away the knowing.
+            rows[n] = {"skipped": str(e) or "not installed"}
         except Exception as e:
             rows[n] = {"error": f"{type(e).__name__}: {e}"[:200]}
 
     hdr = ["S1_no_change", "S2_bound_changed", "S3_unbound_changed", "S4_semantic_noop",
-           "S5_returned_to_original", "S6_cites_an_unobserved_source"]
+           "S5_returned_to_original", "S6_cites_an_unobserved_source",
+           "S7_witness_liveness_measurable"]
     regressed = []
     print(f"{'backend':12} " + " ".join(f"{h.split('_',1)[0]:>6}" for h in hdr) + "   honours the contract?")
     for n, r in rows.items():
@@ -618,7 +654,10 @@ def main(argv):
             continue
         ok = (all(r.get(k) == v for k, v in REQUIRED.items())
               and all(r.get(k) != v for k, v in NOT_ALLOWED.items()))
-        unsup = all(v == "UNSUPPORTED" for v in r.values())
+        # over SCENARIO keys, not over every value in the row: a row may now also carry
+        # `_diagnostics`, and "this backend has no receipt primitive" must not quietly become a
+        # statement about what else nobody happened to put in the dict.
+        unsup = all(r.get(h) == "UNSUPPORTED" for h in hdr)
         verdict = ("no receipt primitive (correctly declined)" if unsup
                    else ("yes" if ok else "NO -- " + ", ".join(
                        [f"{k.split('_',1)[0]} said {r.get(k)}, wants {v}"
@@ -733,9 +772,47 @@ def main(argv):
     else:
         bad_profiles.append("one of the two profiles did not run")
     print("\nprofiles: " + ("the same store returns opposite S5 verdicts under the two declared "
-                            "predicates and agrees everywhere else -- which is why `verifies` has "
-                            "to be in the receipt" if not bad_profiles
+                            "predicates, differs from it elsewhere only on S7 -- a pure re-read, "
+                            "which is a transition question by construction -- and agrees on "
+                            "everything required, which is why `verifies` has to be in the receipt"
+                            if not bad_profiles
                             else "BROKEN -- " + "; ".join(bad_profiles)))
+
+    # HOW MANY TIMES CAN A RECEIPT BE READ? Measured, because the answer turned out not to be
+    # "as many as you like". Found while probing S7.
+    #
+    # `verify_receipt` records its own read, which is right: an append-only store that hides its
+    # reads is not append-only. It then compares `self._generation(sid) - 1` against the pin, and
+    # that -1 is the number of reads made by verification, written as a constant. It is correct
+    # exactly once.
+    #
+    # Measured below on a source nothing touches between reads. The second read of the SAME receipt
+    # reports the source as having moved, and nothing moved.
+    #
+    # In this file's own vocabulary: S1_no_change is REQUIRED to be VALID, and under transition
+    # continuity it is VALID only because `_run` calls verify exactly once. The store's correctness
+    # rests on a call count in the harness -- the same shape as the defect this fixture exists to
+    # catch, one level down.
+    #
+    # The refusal path in that same function already gets this right: it appends
+    # `source_id="__verify__"`, which `_generation(sid)` does not count. The success path appends
+    # under the real sid. One function, two rules for recording its own read.
+    #
+    # NOT folded into the exit status, deliberately. Excluding verification reads from `generation`
+    # changes what `ledger+gen` answers on a re-verify -- a change of PREDICATE, the exact move S5
+    # exists to make impossible to do quietly. Reported with a number instead, so the decision gets
+    # made rather than inherited.
+    reads = {}
+    for _prof in PROFILES:
+        _lg = Ledger(_mkroot(), _prof)
+        _lg.observe(BOUND)
+        _, _rc = _lg.answer_with_receipt([BOUND])
+        reads[_prof] = [_lg.verify_receipt(_rc) for _ in range(3)]   # the source is never touched
+    print("\nreads: " + "; ".join(
+        (f"{p}: {len(v)}/{len(v)} VALID" if "STALE" not in v
+         else f"{p}: STALE from read {v.index('STALE') + 1} of {len(v)} on an UNCHANGED source")
+        for p, v in reads.items())
+        + "\n       (a re-verify is a read, not a transition; see the note above this print)")
 
     print("\nbackends: " + ("every non-adversarial backend honours the contract"
                             if not regressed else "REGRESSED -- " + "; ".join(regressed)))
@@ -766,9 +843,26 @@ def main(argv):
            "query": QUERY, "required": REQUIRED,
            "argv": list(argv[1:]),
            "selected": (names if len(names) != len(CHECKS) else None),
-           "complete": len(names) == len(CHECKS),
+           # `unfiltered` is what `complete` has been measuring: no CLI filter was applied. That
+           # is not the same statement as "every backend ran", and this artifact is where the gap
+           # shows. A machine whose ambient `inspeximus` predates witness(records=, bind_sources=)
+           # gets that row declining correctly -- and a file reporting `complete: true` with
+           # `resolved: {}` and one row holding {"skipped": ...}. Which is not a rare machine:
+           # the copy vendored here is 2.5.0, so it is every contributor who has not installed a
+           # recent one, CI included.
+           #
+           # Same shape as the filtered-run case #4 fixed, one step further in: there the row was
+           # ABSENT and the count gave it away, here the row is PRESENT and empty of verdicts, so
+           # counting cannot.
+           #
+           # Both fields, not one renamed: consumers already read `complete`, and quietly changing
+           # what a published field means is the move this whole cell argues against.
+           "unfiltered": len(names) == len(CHECKS),
+           "complete": len(names) == len(CHECKS) and all(
+               isinstance(r, dict) and "skipped" not in r and "error" not in r
+               for r in rows.values()),
            "exit_status": 1 if _failed else 0,
-           "resolved": dict(_RESOLVED),
+           "resolved": dict(_RESOLVED), "reads_before_stale": reads,
            "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "rows": rows}
     d = os.path.join(os.path.dirname(__file__) or ".", "results")
     os.makedirs(d, exist_ok=True)
