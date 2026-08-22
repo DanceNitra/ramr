@@ -632,8 +632,14 @@ def main(argv):
     for n in names:
         try:
             rows[n] = CHECKS[n]()
-        except ImportError:
-            rows[n] = {"skipped": "not installed"}
+        except ImportError as e:
+            # KEEP THE REASON. check_inspeximus raises a sentence naming what is unmet
+            # ("...has witness(); this row needs witness(records=, bind_sources=)"), and this
+            # handler used to replace it with "not installed" -- said about a package that IS
+            # installed, just older than the row needs. The row's comment argues for exactly the
+            # opposite: the difference between a reader knowing what to install and a reader
+            # seeing a stack trace. The handler was throwing away the knowing.
+            rows[n] = {"skipped": str(e) or "not installed"}
         except Exception as e:
             rows[n] = {"error": f"{type(e).__name__}: {e}"[:200]}
 
