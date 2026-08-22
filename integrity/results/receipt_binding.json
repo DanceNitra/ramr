@@ -9,7 +9,18 @@
     "S3_unbound_changed": "VALID",
     "S4_semantic_noop": "STALE"
   },
-  "iso": "2026-08-21T20:04:01Z",
+  "argv": [],
+  "selected": null,
+  "complete": true,
+  "exit_status": 0,
+  "resolved": {
+    "inspeximus": {
+      "version": "2.20.0",
+      "origin": "local checkout outside this repo (not reproducible elsewhere)",
+      "module": "inspeximus"
+    }
+  },
+  "iso": "2026-08-22T10:32:52Z",
   "rows": {
     "ledger": {
       "S1_no_change": "VALID",
@@ -74,6 +85,14 @@
       "S4_semantic_noop": "STALE",
       "S5_returned_to_original": "VALID",
       "S6_cites_an_unobserved_source": "VALID"
+    },
+    "witness_measuring": {
+      "S1_no_change": "VALID",
+      "S2_bound_changed": "STALE",
+      "S3_unbound_changed": "VALID",
+      "S4_semantic_noop": "STALE",
+      "S5_returned_to_original": "VALID",
+      "S6_cites_an_unobserved_source": "UNSUPPORTED"
     }
   }
 }

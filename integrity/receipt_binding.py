@@ -82,6 +82,9 @@ UNBOUND_V2 = b"Unrelated: bumped the linter to 4.2\n"
 QUERY = "what is the staging database host?"
 
 CHECKS = {}
+# Resolved dependency provenance, filled in by any backend that imports something and written
+# into the result. An artifact that cannot say what it measured cannot be re-run against it.
+_RESOLVED: dict = {}
 
 
 def _mkroot():
@@ -192,6 +195,41 @@ CHECKS["ledger+gen"] = _ledger("transition_continuity")
 # --------------------------------------------------------------------------------------------------
 def check_inspeximus():
     from inspeximus import Inspeximus
+    # WHAT THIS ROW MEASURED, recorded rather than assumed, and WHAT IT REQUIRES, stated rather
+    # than discovered as a TypeError.
+    #
+    # @Stratogain's run of this cell reported `inspeximus: not installed`, and that was the correct
+    # answer -- nothing here declared where the library comes from. This file has no
+    # sys.path.insert (erasure_cell.py in the same folder does), so it imports whatever the ambient
+    # environment provides. On the maintainer's machine that was an EDITABLE INSTALL pointing at an
+    # uncommitted working tree: pip reported 1.27.1, the module reported 2.20.0, same checkout, and
+    # the copy vendored in this repo never loaded at all.
+    #
+    # Pointing this row at the vendored copy is NOT the fix and would be a worse defect: vendored
+    # 2.5.0 exposes `witness()` taking no arguments, while the adapter below needs
+    # `witness(records=, bind_sources=)`. Forcing it would raise a TypeError that reads as a broken
+    # cell rather than an out-of-date dependency. So the row states its requirement and declines
+    # clearly when it is unmet, which is the difference between a reader knowing what to install
+    # and a reader seeing a stack trace.
+    import inspeximus as _ix
+    import inspect as _inspect
+    _origin = "unknown"
+    _file = getattr(_ix, "__file__", "") or ""
+    if os.path.abspath(_file).startswith(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))):
+        _origin = "vendored in this repo"
+    elif "site-packages" in _file:
+        _origin = "installed distribution"
+    else:
+        _origin = "local checkout outside this repo (not reproducible elsewhere)"
+    _RESOLVED["inspeximus"] = {"version": getattr(_ix, "__version__", "?"),
+                               "origin": _origin,
+                               "module": os.path.basename(os.path.dirname(_file))}
+    _need = _inspect.signature(Inspeximus.witness).parameters
+    if "records" not in _need or "bind_sources" not in _need:
+        _RESOLVED["inspeximus"]["unmet"] = "witness(records=, bind_sources=) required"
+        raise ImportError("inspeximus %s has witness%s; this row needs witness(records=, "
+                          "bind_sources=)" % (getattr(_ix, "__version__", "?"),
+                                              _inspect.signature(Inspeximus.witness)))
 
     class Adapter:
         def __init__(self, root):
@@ -714,15 +752,30 @@ def main(argv):
     print("A repeated old digest is a new observation of previous bytes; a revert command in a store")
     print("is an operation on an assertion. The cell now tells them apart instead of declining to.")
 
+    # WHAT THIS FILE IS, beside what it found. Two things were indistinguishable in the artifact
+    # until a contributor's run made us look:
+    #   * a FILTERED run writes the same schema with fewer rows. The console is loud about it --
+    #     exit 1, "controls: BROKEN" -- but the JSON was byte-shaped like a full green run, with
+    #     the maintainer's own backend surviving and every adversarial control gone. That is
+    #     indistinguishable from cherry-picking by anyone reading the file alone.
+    #   * the resolved dependency was undeclared, so the `inspeximus` row described one machine.
+    # `selected` is None when every backend ran, so "all of them" and "these happen to be all of
+    # them today" stay different statements.
+    _failed = bool(bad or bad_profiles or regressed or ident)
     out = {"fixture": "receipt_binding", "bound_source": BOUND, "unbound_source": UNBOUND,
            "query": QUERY, "required": REQUIRED,
+           "argv": list(argv[1:]),
+           "selected": (names if len(names) != len(CHECKS) else None),
+           "complete": len(names) == len(CHECKS),
+           "exit_status": 1 if _failed else 0,
+           "resolved": dict(_RESOLVED),
            "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "rows": rows}
     d = os.path.join(os.path.dirname(__file__) or ".", "results")
     os.makedirs(d, exist_ok=True)
     p = os.path.join(d, "receipt_binding.json")
     json.dump(out, open(p, "w", encoding="utf-8"), indent=2)
     print(f"\nreceipt -> {p}")
-    return 0 if not (bad or bad_profiles or regressed or ident) else 1
+    return 1 if _failed else 0
 
 
 if __name__ == "__main__":
