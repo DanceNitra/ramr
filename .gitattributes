@@ -3,3 +3,9 @@
 # manifest pin never matched the file it pinned.
 *.jsonl text eol=lf
 *.json text eol=lf
+# *.py joined the list after @Stratogain noticed the patterns did not cover it
+# (DanceNitra/ramr#5). Nothing pinned today is a .py file -- verify_manifest.py names nine
+# .jsonl artifacts and nothing else -- so this closes a gap rather than fixing a break, and
+# it rewrites nothing: all 48 tracked .py files are already stored with LF in HEAD, measured
+# before the line was added.
+*.py text eol=lf
