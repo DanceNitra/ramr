@@ -119,7 +119,20 @@ class Ledger:
                              "seq": len(self.records)})
 
     def _generation(self, sid):
-        return sum(1 for r in self.records if r["source_id"] == sid)
+        # READS ARE RECORDED BUT DO NOT ADVANCE THE GENERATION, and that distinction is the fix for
+        # what @Stratogain measured in #5: `verify_receipt` appended its own read under the real
+        # source id, so the pin had to be compared against `_generation(sid) - 1` -- the number of
+        # reads verification makes, written as a constant. It was right exactly once, and the second
+        # verification of an untouched source returned STALE.
+        #
+        # The store must still record the read; an append-only ledger that hides its reads is not
+        # append-only, and the refusal path already got this right with `source_id="__verify__"`.
+        # What was wrong was counting it. A generation is a count of OBSERVATIONS of the source, so
+        # a verification read is marked and skipped here, the read stays attributable to its source
+        # instead of being flattened into `__verify__`, and the -1 disappears rather than being
+        # tuned.
+        return sum(1 for r in self.records
+                   if r["source_id"] == sid and r.get("kind") != "verify")
 
     def answer_with_receipt(self, source_ids):
         """The answer is 'what these files said when last read'. The receipt binds it to exactly
@@ -166,11 +179,14 @@ class Ledger:
         for sid, pin in receipt["sources"].items():
             raw = open(os.path.join(self.root, sid), "rb").read()
             now = hashlib.sha256(raw).hexdigest()
-            # re-observe, because verifying IS a read and an append-only ledger records its reads
-            self.records.append({"source_id": sid, "digest": now, "seq": len(self.records)})
+            # re-observe, because verifying IS a read and an append-only ledger records its reads.
+            # `kind: verify` marks it as a read rather than an observation, so it stays in the log
+            # and out of the generation count -- see _generation.
+            self.records.append({"source_id": sid, "digest": now, "kind": "verify",
+                                 "seq": len(self.records)})
             if now != pin["digest"]:
                 return "STALE"
-            if "generation" in pin and self._generation(sid) - 1 != pin["generation"]:
+            if "generation" in pin and self._generation(sid) != pin["generation"]:
                 # same bytes, but the ledger saw the source move in between: content continuity
                 # holds and transition continuity does not. Same event, opposite verdicts.
                 return "STALE"
@@ -808,11 +824,18 @@ def main(argv):
         _lg.observe(BOUND)
         _, _rc = _lg.answer_with_receipt([BOUND])
         reads[_prof] = [_lg.verify_receipt(_rc) for _ in range(3)]   # the source is never touched
-    print("\nreads: " + "; ".join(
-        (f"{p}: {len(v)}/{len(v)} VALID" if "STALE" not in v
-         else f"{p}: STALE from read {v.index('STALE') + 1} of {len(v)} on an UNCHANGED source")
-        for p, v in reads.items())
-        + "\n       (a re-verify is a read, not a transition; see the note above this print)")
+    # FOLDED INTO THE EXIT STATUS, now that the defect it found is fixed. #5 deliberately left this
+    # measured-but-not-asserted, because asserting it while `_generation` still counted verification
+    # reads would have changed what `ledger+gen` answers on a re-verify without saying so -- exactly
+    # the quiet predicate change S5 exists to prevent. The predicate change has now been made
+    # explicitly and argued in `_generation`, so the measurement becomes a control that can fail:
+    # verification is a read, reads do not move the source, therefore verifying an untouched source
+    # any number of times must return VALID every time, under BOTH profiles.
+    bad_reads = [f"{p}: {v}" for p, v in reads.items() if any(x != "VALID" for x in v)]
+    print("\nreads: " + ("; ".join(f"{p}: {len(v)}/{len(v)} VALID" for p, v in reads.items())
+                         + "  -- verification is idempotent on an untouched source"
+                         if not bad_reads
+                         else "BROKEN -- " + "; ".join(bad_reads)))
 
     print("\nbackends: " + ("every non-adversarial backend honours the contract"
                             if not regressed else "REGRESSED -- " + "; ".join(regressed)))
@@ -838,7 +861,7 @@ def main(argv):
     #   * the resolved dependency was undeclared, so the `inspeximus` row described one machine.
     # `selected` is None when every backend ran, so "all of them" and "these happen to be all of
     # them today" stay different statements.
-    _failed = bool(bad or bad_profiles or regressed or ident)
+    _failed = bool(bad or bad_profiles or regressed or ident or bad_reads)
     out = {"fixture": "receipt_binding", "bound_source": BOUND, "unbound_source": UNBOUND,
            "query": QUERY, "required": REQUIRED,
            "argv": list(argv[1:]),

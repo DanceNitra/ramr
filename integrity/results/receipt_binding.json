@@ -29,11 +29,11 @@
     ],
     "transition_continuity": [
       "VALID",
-      "STALE",
-      "STALE"
+      "VALID",
+      "VALID"
     ]
   },
-  "iso": "2026-08-22T14:11:54Z",
+  "iso": "2026-08-22T14:14:45Z",
   "rows": {
     "ledger": {
       "S1_no_change": "VALID",
