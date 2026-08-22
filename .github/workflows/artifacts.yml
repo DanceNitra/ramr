@@ -94,3 +94,15 @@ jobs:
       # reporting an absence.
       - name: receipt-binding cell (adversarial controls must keep failing)
         run: python integrity/receipt_binding.py
+
+      # The calibration-dataset checker, written for deepseek-ai/DeepSeek-V3#1591 so a proposed usage
+      # guide would ship something that can fail. It was committed on 2026-08-21 with NO caller here,
+      # which is the defect named at the top of this file, in the repo that names it.
+      #
+      # --self-test is the part that needs no external data: it mutates each check and asserts the
+      # failure lands on THAT check's own row, asserts the clean fixture still passes, asserts an
+      # empty file yields no PASS at all, and carries a negative control on the harness itself (a
+      # fixture where an unrelated row fails, which a loose "something failed" assertion would take).
+      # Mutation score 6/6 -- reverting any of the six fixes turns this step red.
+      - name: calibration-dataset checker (mutation controls, 6/6)
+        run: python integrity/calibration_dataset_check.py --self-test

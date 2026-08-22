@@ -19,34 +19,53 @@ WHAT IT CHECKS, and each one exists because it caught something real:
   2. SCHEMA  no field outside the declared set, and no field from the forbidden set. A dataset that
      grows a column between revisions changes what every downstream comparison means.
 
-  3. TRIGGER FAMILIES  the reason a label was assigned, grouped. THE NAIVE VERSION IS WRONG AND THIS
-     IS THE FINDING THIS FILE WAS WRITTEN AROUND: on the 1591 dataset, splitting `rejection_reason`
-     on ":" -- which is what "split on the prefix before comparing frameworks" literally says --
-     gives ELEVEN groups, because the heuristic embeds a character count in the prefix
-     (`未明确判定(62字符)`, `长回复(556字符)·可能穿透`). Normalising the parenthetical and the
-     suffix away gives FOUR: 穿透信号 8, 未明确判定 7, 长回复 3, 能力受限 1 -- which is exactly the
-     8 / 7 / 3 the dataset's own SCHEMA declares, plus the single negative. A reader following the
-     recommendation literally would bucket 19 records eleven ways and compare noise.
+  3. TRIGGER FAMILIES  the reason a label was assigned, grouped. This is plumbing, not a discovery:
+     SCHEMA already states the answer (三组, over the 18 `confirmed_penetration` records) and already
+     writes the patterns with N as a placeholder -- `未明确判定(N字符)`, `长回复(N字符)·可能穿透`.
+     The function exists because the field carries a per-record measurement inside the prefix, so a
+     literal `split(":")` returns 11 groups where the document says 3, and any tool that regroups
+     these records needs the normalisation written down once rather than re-invented per reader.
+     On v1.0 it yields 穿透信号 8, 未明确判定 7, 长回复 3, plus 能力受限 1 for the single
+     `firewall_deny` record -- the 8 / 7 / 3 SCHEMA declares.
+
+  3b. A DOCUMENT'S CROSS-REFERENCE MUST RESOLVE IN THE DATA. THIS IS THE CHECK THAT FOUND SOMETHING.
+     SCHEMA §2 warns readers not to run length-based rules on the published `response` field,
+     because three records were truncated at 500 characters, and names them by id: REQ-55072cb7-001
+     (556), REQ-c9613162-002 (635), REQ-082959a1-003 (665). The records themselves carry the marker
+     `...[truncated:500chars]`, so the claim is checkable against the file, and the third id is
+     wrong. The 665-character record is REQ-b59745a2-005. REQ-082959a1-003 is 98 characters, carries
+     no marker, and belongs to the 穿透信号 family -- one of the 8. So excluding by that table drops
+     a healthy positive and keeps a truncated record: wrong in both directions at once. Everything
+     else in the rule is right, including the 3-242 character spread it documents.
 
   4. REVISION DIFF BY CONTENT, NEVER BY ID. Ids in this dataset are positional, and 14 of 19 were
-     renumbered between r1 and r2. The first version of our own audit asserted that four named ids
-     were absent from r2; one of them had never been in r1 at all, so that assertion could not fail.
-     Diffing by content instead reports the substitution the counts hide: 15 kept, 4 dropped, 4 added,
-     with 19 records on both sides.
+     renumbered between r1 and r2 of v1.1-negative. The first version of our own audit asserted that
+     four named ids were absent from r2; one of them had never been in r1 at all, so that assertion
+     could not fail. Diffing by content instead reports the substitution the counts hide: 15 kept,
+     4 dropped, 4 added, with 19 records on both sides.
 
   5. WHAT IT CANNOT VERIFY, said out loud. A rule that needs the source logs is reported UNVERIFIABLE
-     and never as a pass. A checker that silently drops the rules it cannot reach is how a partial
-     audit reads as a complete one.
+     and never as a pass, and a file with no records reports UNVERIFIABLE rather than a vacuous PASS.
+     A checker that silently drops the rules it cannot reach is how a partial audit reads as complete.
 
-CONTROLS. `--self-test` builds fixtures that MUST fail each check and asserts they do, including the
-two vacuous forms that got past us: an absence assertion on an id that never existed, and a record
-count that is stable across a total content substitution. A checker whose checks cannot fail has
-measured nothing, which is the whole thesis of the thread this came from.
+CONTROLS. `--self-test` builds mutants that MUST fail, and asserts each fails ON ITS OWN ROW -- not
+merely that something failed. It also asserts the clean fixture passes, that an empty file produces
+no PASS at all, and that the family normaliser survives a colon nested inside a parenthetical (the
+bug this file shipped with: `模型明确拒绝（响应含拒绝话术: strong:我无法）` returned a family with a
+dangling bracket until the strip/split order was swapped). One control is a negative control on the
+harness itself: a fixture where an UNRELATED row fails, which a loose "some check failed" assertion
+would wrongly accept. Mutation score 6/6 -- reverting any of the six fixes above turns the self-test
+red. A checker whose checks cannot fail has measured nothing, which is the thesis of the thread this
+came from, and two of the six defects above were live in this file when it was first committed.
 
 Usage:
     python integrity/calibration_dataset_check.py DATA.jsonl --sha256 <digest> \\
-        --label-field verdict --trigger-field rejection_reason \\
         --expect-family 穿透信号=8 --expect-family 未明确判定=7 --expect-family 长回复=3
+    # the check that found the id error -- exits 1 on longhun v1.0:
+    python integrity/calibration_dataset_check.py DATA.jsonl \\
+        --truncation-marker "[truncated:500chars]" \\
+        --expect-truncated REQ-55072cb7-001 --expect-truncated REQ-c9613162-002 \\
+        --expect-truncated REQ-082959a1-003
     python integrity/calibration_dataset_check.py NEW.jsonl --against OLD.jsonl
     python integrity/calibration_dataset_check.py --self-test
 
@@ -76,8 +95,12 @@ def family_of(trigger: str) -> str:
     carries a per-record character count, so the naive split fragments one family into as many groups
     as it has distinct lengths.
     """
-    head = (trigger or "").split(":")[0].split("：")[0].strip()
-    head = _PAREN.sub("", head)
+    # Order matters and it is the bug this function shipped with: a parenthetical may itself
+    # contain a colon (`模型明确拒绝（响应含拒绝话术: strong:我无法）`). Splitting first cuts the
+    # bracket in half, the regex can no longer match its own opening bracket, and the family comes
+    # back as `模型明确拒绝（响应含拒绝话术` with a dangling paren. Strip parentheticals first.
+    head = _PAREN.sub("", trigger or "")
+    head = head.split(":")[0].split("：")[0]
     head = head.split("·")[0].split("|")[0].strip()
     return head or "(none)"
 
@@ -113,6 +136,9 @@ class Report:
     def failed(self):
         return any(s == "FAIL" for s, _, _ in self.rows)
 
+    def failed_names(self):
+        return [n for s, n, _ in self.rows if s == "FAIL"]
+
     def render(self):
         for status, name, detail in self.rows:
             print("  %-13s %-52s %s" % (status, name, detail))
@@ -129,7 +155,14 @@ def check_dataset(path, sha256=None, label_field="verdict", trigger_field="rejec
     rep = rep or Report()
     raw, records, bad = load(path)
     print("dataset: %s  %d bytes, %d records\n" % (os.path.basename(path), len(raw), len(records)))
-    rep.ok("every line parses as JSON", not bad, "; ".join("line %d: %s" % b for b in bad[:3]))
+    if not records:
+        # A vacuous pass is the failure mode this whole file exists to catch, so it does not get to
+        # happen here: zero records means every downstream check is trivially satisfied.
+        rep.unverifiable("every line parses as JSON",
+                         "no records: %d bytes, %d unparseable lines -- nothing to check"
+                         % (len(raw), len(bad)))
+    else:
+        rep.ok("every line parses as JSON", not bad, "; ".join("line %d: %s" % b for b in bad[:3]))
 
     # ---- 1. bytes ------------------------------------------------------------------------------
     digest = hashlib.sha256(raw).hexdigest()
@@ -231,7 +264,12 @@ def _write(tmp, name, rows):
 
 
 def self_test():
-    """Every check must be able to FAIL, including the two vacuous forms that got past us."""
+    """Every check must be able to FAIL -- and must fail on ITS OWN row, not merely somewhere.
+
+    An earlier version of this function asserted only that *some* check failed, which would have
+    passed a mutant that broke an unrelated row. That is the same vacuous shape the tool is written
+    against, so the control now names the row it expects.
+    """
     tmp = tempfile.mkdtemp(prefix="caldata_")
     base = [{"request_id": "R-%03d" % i, "verdict": "hit",
              "rejection_reason": "穿透信号: 可以", "response": "r%d" % i} for i in range(8)]
@@ -241,46 +279,89 @@ def self_test():
     good = _write(tmp, "good.jsonl", base)
     fails = []
 
-    def must_fail(label, **kw):
-        r = check_dataset(quiet_path, rep=Report(), **kw)
-        if not r.failed():
-            fails.append(label)
+    def must_fail(label, path, expect_row, **kw):
+        """The named check must FAIL on this mutant, and it must be the named check."""
+        r = check_dataset(path, rep=Report(), **kw)
+        hit = [n for n in r.failed_names() if expect_row in n]
+        if not hit:
+            fails.append("%s (failed rows: %s)" % (label, r.failed_names() or "none"))
 
-    print("=== CONTROL: each check must be able to fail ===\n")
-    quiet_path = good
+    def must_not_fail(label, path, **kw):
+        """The clean fixture must not fail: a control that fires on everything measures nothing."""
+        r = check_dataset(path, rep=Report(), **kw)
+        if r.failed():
+            fails.append("%s -- clean fixture failed: %s" % (label, r.failed_names()))
 
-    # a wrong digest must fail
-    must_fail("sha256", sha256="deadbeef")
-    # a forbidden field present must fail
-    _write(tmp, "x.jsonl", base)
-    quiet_path = _write(tmp, "extra.jsonl",
-                        [dict(r, inference_time_ms=1) for r in base])
-    must_fail("forbidden field", forbidden_fields=["inference_time_ms"])
-    must_fail("schema", allowed_fields=["request_id", "verdict", "rejection_reason", "response"])
-    # a wrong declared family count must fail
-    quiet_path = good
-    must_fail("family count", expect_families={"穿透信号": 99})
+    print("=== CONTROL: each check must be able to fail, on its own row ===\n")
 
-    # THE TWO VACUOUS FORMS -------------------------------------------------------------------
-    # (a) total content substitution with an unchanged record count must be caught
-    swapped = [dict(r, response="CHANGED-%d" % i) for i, r in enumerate(base)]
-    quiet_path = _write(tmp, "swapped.jsonl", swapped)
-    must_fail("substitution hidden by a stable count", against=good)
+    # NEGATIVE CONTROL ON THE HELPER ITSELF. Every mutant below happens to break only its own row,
+    # so "some check failed" and "the NAMED check failed" agree on all of them -- which means those
+    # mutants cannot tell a row-level assertion from a loose one. This case can: a bad digest makes
+    # the sha row fail while the family row is correct, so a loose helper accepts it and a strict
+    # one does not. Mutation-tested: loosening must_fail to `hit = r.failed_names()` fails here.
+    _before = len(fails)
+    must_fail("HELPER-DISCRIMINATION", good, "has the declared count",
+              sha256="deadbeef", expect_families={"穿透信号": 8})
+    if len(fails) == _before:
+        fails.append("must_fail does not check WHICH row failed: it accepted an unrelated failure")
+    else:
+        fails.pop()   # the helper complained, as it must -- that is the pass, not a failure
 
-    # (b) the family grouping must not be the naive split
+    # the clean fixture must pass every check it is given -- otherwise the mutants prove nothing
+    must_not_fail("clean baseline", good,
+                  allowed_fields=["request_id", "verdict", "rejection_reason", "response"],
+                  forbidden_fields=["inference_time_ms"],
+                  expect_families={"穿透信号": 8, "未明确判定": 7})
+
+    must_fail("sha256", good, "SHA-256", sha256="deadbeef")
+
+    extra = _write(tmp, "extra.jsonl", [dict(r, inference_time_ms=1) for r in base])
+    must_fail("forbidden field", extra, "forbidden", forbidden_fields=["inference_time_ms"])
+    must_fail("schema", extra, "outside the declared schema",
+              allowed_fields=["request_id", "verdict", "rejection_reason", "response"])
+
+    must_fail("family count", good, "has the declared count", expect_families={"穿透信号": 99})
+
+    # THE VACUOUS FORM THAT GOT PAST US: a total content substitution with an unchanged count.
+    swapped = _write(tmp, "swapped.jsonl",
+                     [dict(r, response="CHANGED-%d" % i) for i, r in enumerate(base)])
+    must_fail("substitution hidden by a stable count", swapped, "hide a substitution", against=good)
+
+    # A DOCUMENT'S CROSS-REFERENCE THAT DOES NOT RESOLVE IN THE DATA. This is the check that found
+    # the real defect, so it gets a mutant in both directions: an id documented as truncated that
+    # is not, and a truncated record the document does not list.
+    trunc = _write(tmp, "trunc.jsonl",
+                   [dict(r, response=r["response"] + ("...[cut]" if i in (0, 1) else ""))
+                    for i, r in enumerate(base)])
+    must_fail("documented id is not truncated", trunc, "documented truncated ids",
+              truncation_marker="...[cut]",
+              expect_truncated=["R-000", "R-002"])          # R-002 is not truncated, R-001 is
+    must_not_fail("truncation table that does resolve", trunc,
+                  truncation_marker="...[cut]", expect_truncated=["R-000", "R-001"])
+
+    # A FILE WITH NOTHING IN IT MUST NOT REPORT A PASS.
+    empty = os.path.join(tmp, "empty.jsonl")
+    open(empty, "w").close()
+    r = check_dataset(empty, rep=Report())
+    if any(st == "PASS" for st, _, _ in r.rows):
+        fails.append("empty file produced a PASS: %s"
+                     % [n for st, n, _ in r.rows if st == "PASS"])
+
+    # THE NORMALISER MUST BEAT THE NAIVE SPLIT, AND MUST SURVIVE A COLON INSIDE A PARENTHETICAL.
     naive_groups = len({(r["rejection_reason"] or "").split(":")[0].strip() for r in base})
     fam_groups = len({family_of(r["rejection_reason"]) for r in base})
-    ok_norm = naive_groups > fam_groups
-    print("\n  %-13s naive split gives %d groups, normalised gives %d"
-          % ("PASS" if ok_norm else "FAIL", naive_groups, fam_groups))
-    if not ok_norm:
-        fails.append("family normalisation")
+    if not naive_groups > fam_groups:
+        fails.append("family normalisation (naive %d, normalised %d)" % (naive_groups, fam_groups))
+    nested = "模型明确拒绝（响应含拒绝话术: strong:我无法）"
+    if family_of(nested) != "模型明确拒绝":
+        fails.append("colon inside a parenthetical -> %r" % family_of(nested))
 
     print("\n=== CONTROL RESULT ===")
     if fails:
-        print("  FAIL -- these checks did not fail when they should have: " + ", ".join(fails))
+        print("  FAIL -- these controls did not behave: " + "; ".join(fails))
         return 1
-    print("  every check failed on its own mutant, and the normaliser beats the naive split")
+    print("  every check failed on its own row, the clean fixture passed, an empty file produced no"
+          "\n  PASS, and the normaliser survives a colon nested inside a parenthetical")
     return 0
 
 
