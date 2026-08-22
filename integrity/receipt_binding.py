@@ -772,6 +772,42 @@ def main(argv):
                             if not bad_profiles
                             else "BROKEN -- " + "; ".join(bad_profiles)))
 
+    # HOW MANY TIMES CAN A RECEIPT BE READ? Measured, because the answer turned out not to be
+    # "as many as you like". Found while probing S7.
+    #
+    # `verify_receipt` records its own read, which is right: an append-only store that hides its
+    # reads is not append-only. It then compares `self._generation(sid) - 1` against the pin, and
+    # that -1 is the number of reads made by verification, written as a constant. It is correct
+    # exactly once.
+    #
+    # Measured below on a source nothing touches between reads. The second read of the SAME receipt
+    # reports the source as having moved, and nothing moved.
+    #
+    # In this file's own vocabulary: S1_no_change is REQUIRED to be VALID, and under transition
+    # continuity it is VALID only because `_run` calls verify exactly once. The store's correctness
+    # rests on a call count in the harness -- the same shape as the defect this fixture exists to
+    # catch, one level down.
+    #
+    # The refusal path in that same function already gets this right: it appends
+    # `source_id="__verify__"`, which `_generation(sid)` does not count. The success path appends
+    # under the real sid. One function, two rules for recording its own read.
+    #
+    # NOT folded into the exit status, deliberately. Excluding verification reads from `generation`
+    # changes what `ledger+gen` answers on a re-verify -- a change of PREDICATE, the exact move S5
+    # exists to make impossible to do quietly. Reported with a number instead, so the decision gets
+    # made rather than inherited.
+    reads = {}
+    for _prof in PROFILES:
+        _lg = Ledger(_mkroot(), _prof)
+        _lg.observe(BOUND)
+        _, _rc = _lg.answer_with_receipt([BOUND])
+        reads[_prof] = [_lg.verify_receipt(_rc) for _ in range(3)]   # the source is never touched
+    print("\nreads: " + "; ".join(
+        (f"{p}: {len(v)}/{len(v)} VALID" if "STALE" not in v
+         else f"{p}: STALE from read {v.index('STALE') + 1} of {len(v)} on an UNCHANGED source")
+        for p, v in reads.items())
+        + "\n       (a re-verify is a read, not a transition; see the note above this print)")
+
     print("\nbackends: " + ("every non-adversarial backend honours the contract"
                             if not regressed else "REGRESSED -- " + "; ".join(regressed)))
 
@@ -803,7 +839,7 @@ def main(argv):
            "selected": (names if len(names) != len(CHECKS) else None),
            "complete": len(names) == len(CHECKS),
            "exit_status": 1 if _failed else 0,
-           "resolved": dict(_RESOLVED),
+           "resolved": dict(_RESOLVED), "reads_before_stale": reads,
            "iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "rows": rows}
     d = os.path.join(os.path.dirname(__file__) or ".", "results")
     os.makedirs(d, exist_ok=True)
