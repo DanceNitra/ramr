@@ -24,6 +24,23 @@ than a claim of ours:
   which the positive control stayed silent measured nothing, and averaging it in reports a number
   the run did not observe.
 
+  AND GATE 2 IS FORTY YEARS OLD, WHICH IS THE POINT.  It is not our rule and it is not new: US
+  clinical-laboratory regulation requires it of every reportable result. 42 CFR 493.1256(f),
+  verbatim from eCFR: "Results of control materials must meet the laboratory's and, as applicable,
+  the manufacturer's test system criteria for acceptability BEFORE REPORTING patient test results."
+  Same paragraph, (d)(3)(v), requires an inhibition control so that a NEGATIVE is only reportable
+  if the control fired -- exactly the case that bit us. What is worth saying is not that the rule
+  is new but that no ML evaluation framework enforces it: refusal gets tracked and never gates.
+  So this file imports a clinical rule into a field that lacks it, and is framed that way on
+  purpose. Presenting it as ours would be the overclaim this repository exists to avoid.
+
+  The phenomenon behind gate 2 is textbook too, and in two fields. Anthropic measured Claude 2.1
+  long-context recall going 27% to 98% on one added priming sentence, the whole 71 points being
+  reluctance rather than retrieval. Nasr et al. (arXiv:2311.17035) formalise the same split as
+  EXTRACTABLE versus DISCOVERABLE memorisation and warn against concluding "that the alignment
+  procedure has correctly prevented the model from emitting training data". Cite them; do not
+  re-derive them.
+
   AND THE ASYMMETRY THAT FOLLOWS FROM BOTH.  Presence of an unforgeable planted value is evidence of
   receipt; absence is not evidence of anything, because every failure mode above produces silence.
   So a one-sided arm yields a LOWER bound only. Reporting a two-sided bracket from absences is the
