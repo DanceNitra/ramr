@@ -157,6 +157,56 @@ class Verdict:
         return "\n".join([head, *body, *(f"  REFUSAL: {r}" for r in self.refusals)])
 
 
+
+# gate 3: how wide is that lower bound, really?
+def wilson(k: int, n: int, z: float = 1.96) -> tuple:
+    """Wilson score interval, because every n in this work is small."""
+    if n == 0:
+        return (0.0, 1.0)
+    p = k / n
+    d = 1 + z * z / n
+    c = p + z * z / (2 * n)
+    m = z * (p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5
+    return ((c - m) / d, (c + m) / d)
+
+
+@dataclass
+class FramingGap:
+    """How much of an emit-rate is the QUESTION rather than the content.
+
+    Gates 1 and 2 decide whether an arm may report a bound at all. This asks how far that bound
+    sits from the truth, and it exists because a lower bound with no width gets read as a point.
+    Hand it the same content asked several ways: the spread between the best and worst framing is
+    emission suppressed by the question, at fixed content and fixed position.
+
+    THE HONEST DEFAULT IS TO REFUSE. Our own best receipt is 3 trials per framing, where the
+    Wilson intervals overlap ([0.438, 1.000] against [0.000, 0.562]) and Fisher gives p = 0.100 --
+    the BEST a 3-vs-3 table can do even when every trial falls the right way. So it flags and does
+    not correct. Applying a correction from an unseparated gap would be this file doing the exact
+    thing it was written to stop."""
+    cells: dict                      # framing label -> (hits, trials)
+
+    def verdict(self) -> dict:
+        if len(self.cells) < 2:
+            return {"separated": False, "apply_correction": False,
+                    "reason": "need at least two framings to see a gap"}
+        r = {k: (h / n if n else 0.0, wilson(h, n), n) for k, (h, n) in self.cells.items()}
+        best = max(r, key=lambda k: r[k][0])
+        worst = min(r, key=lambda k: r[k][0])
+        b, w = r[best], r[worst]
+        sep = b[1][0] > w[1][1]        # best's lower bound clears worst's upper bound
+        return {"best": best, "worst": worst,
+                "point_gap": round(b[0] - w[0], 4),
+                "best_ci": [round(x, 3) for x in b[1]],
+                "worst_ci": [round(x, 3) for x in w[1]],
+                "n_per_cell": {k: v[2] for k, v in r.items()},
+                "separated": sep, "apply_correction": sep,
+                "reason": ("the intervals separate, so the emit channel demonstrably under-reports"
+                           " by at least this much under the worse framing" if sep else
+                           "the intervals OVERLAP at this n: a gap is visible and not established."
+                           " Flag it, widen nothing, and say the bound may be conservative by an"
+                           " unmeasured amount")}
+
 # ────────────────────────────────────────────────────────────────────── self-test, with teeth
 def _selftest() -> int:
     fails = []
@@ -212,6 +262,20 @@ def _selftest() -> int:
     check("the gate is not simply always-refusing", Arm(
         "positive", positions={1: 10}).add(
         Trial(control_fired=True, present={1: True})).verdict().may_report)
+
+    # 6. GATE 3, fed our own best receipt: a_probe_with_tools_enabled_can_answer_from_disk,
+    #    2.1.241, guarded arm with tools asserted zero. "the last CANARY you can SEE" 3/3,
+    #    naming the file 1/3, a neutral phrasing 0/3. A total point gap that n=3 cannot
+    #    establish, so the gate must REFUSE to correct. That refusal is why it exists.
+    real = FramingGap({"you_can_see": (3, 3), "names_the_file": (1, 3),
+                       "neutral": (0, 3)}).verdict()
+    check("gate 3 sees the full point gap", real["point_gap"] == 1.0)
+    check("gate 3 REFUSES to correct at n=3", real["apply_correction"] is False)
+    check("gate 3 names the overlap as the reason", "OVERLAP" in real["reason"])
+    check("gate 3 DOES correct once the intervals separate",
+          FramingGap({"a": (30, 30), "b": (0, 30)}).verdict()["apply_correction"] is True)
+    check("CONTROL identical cells show no separation",
+          FramingGap({"a": (15, 30), "b": (15, 30)}).verdict()["separated"] is False)
 
     print(f"\n{'SELF-TEST PASSED' if not fails else 'SELF-TEST FAILED: ' + ', '.join(fails)}")
     return 1 if fails else 0
