@@ -201,7 +201,10 @@ def main():
                 continue
             # The id must be INDISTINGUISHABLE from the store's own. The first version used
             # "sib-<chain_id>", which a scorer reading nothing but the id format could spot -- and the
-            # subject of that record IS the stale value, so it solved 205 of 300 traces outright. A
+            # subject of that record IS the stale value. Measured over 100 rebuilds: the cue lands on
+            # 204 of 300 traces and an id-shape rule fires on 136 to 148 of them at 95.2% to 100.0%
+            # (ramr_id_cue_reconstruction.py). An earlier comment here said "205 of 300 solved
+            # outright"; that figure has no receipt and does not reproduce. A
             # fix that plants a brighter cue than the one it removes is not a fix. Content-addressed,
             # so it is also reproducible, which uuid4 ids are not.
             rid = hashlib.sha256((t["chain_id"] + sib).encode("utf-8")).hexdigest()[:10]

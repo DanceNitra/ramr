@@ -87,3 +87,36 @@ score; that baseline is the ceiling on what the benchmark can currently license.
 echoing in cached summaries, quoted threads and copied notes, while the correction arrives once. A
 detector tuned to "recurring means current" on this fixture could be learning a rule that is
 backwards in the field. We have not measured that, and it is the reason the re-cut matters.
+
+### 4. "205 of 300" had no receipt, and does not reproduce
+
+Three files stated that reading nothing but the id format "solved 205 of 300 traces": `memaudit.py`,
+`ramr_traces_v03_recut.py` and `README.md`. None carried a receipt. The corpus that produced it is
+gone: every shipped corpus was rebuilt with content-addressed ids, and none on disk carries a
+`sib-` id.
+
+Measured 2026-09-04 by rebuilding the corpus under the old `sib-<chain_id>` scheme, 100 times:
+
+* the cue lands on **204 of 300** traces in every run;
+* an id-shape rule fires on **136 to 148** of them, right on **95.2% to 100.0%**;
+* the permuted-label null stays at or below **1.0%**;
+* it never reaches 205.
+
+These bounds are an OBSERVED envelope over 100 rebuilds, not a property of the corpus, and they
+widen with the number of runs: 5 runs gave 138-143, 20 gave 139-146, 100 gave 136-148. Quoting the
+range from a short run would understate it.
+
+**Why a range and not a number.** `build_trace()` takes record ids from `store.remember()`, which
+mints `uuid.uuid4().hex[:10]`. Every rebuild draws different ids, so the minority-shape detection
+shifts and no two runs agree. That is defect 1 in this file, still open, seen from a second angle:
+a point estimate here would have replaced one unreproducible number with another. The probe refuses
+to print one, and refuses outright if all its runs agree.
+
+**Does not invalidate:** the finding itself. A re-cut that removed one shortcut planted a brighter
+one, and every other probe in the battery reported "at chance" because none looked at ids. Only the
+magnitude was wrong.
+
+**Scope:** this is a reconstruction, not the original run. The correct claim is "205 does not
+reproduce", not "the original was wrong".
+
+Runnable: `ramr_id_cue_reconstruction.py`, receipt in `ramr_id_cue_reconstruction_result.json`.

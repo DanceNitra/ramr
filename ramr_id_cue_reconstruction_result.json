@@ -1,0 +1,27 @@
+{
+ "verdict": "205_OF_300_DOES_NOT_REPRODUCE",
+ "scope": "a reconstruction under the old sib-<chain_id> scheme, not the original run; the original corpus no longer exists on disk",
+ "published_claim": "reading nothing but the id format solved 205 of 300 traces",
+ "runs": 100,
+ "traces": 300,
+ "cue_planted_on_traces": {
+  "min": 204,
+  "max": 204,
+  "identical_every_run": true
+ },
+ "id_rule_fires_on_traces": {
+  "min": 136,
+  "max": 148,
+  "distinct_values": 13
+ },
+ "id_rule_accuracy": {
+  "min": 0.952054794520548,
+  "max": 1.0
+ },
+ "permuted_label_null": {
+  "min": 0.0,
+  "max": 0.009589041095890411
+ },
+ "why_a_range_and_not_a_number": "build_trace() takes record ids from store.remember(), which mints uuid.uuid4().hex[:10], so every rebuild draws different ids and the minority-shape detection shifts with them. ERRATA.md lists this as open. A point estimate would replace one unreproducible number with another.",
+ "measured_claim": "the cue lands on 204 of 300 traces in every run; an id-shape rule fires on 136 to 148 of them and is right on 95.2% to 100.0% of those, against a permuted-label null at or below 1.0%. It never reaches 205."
+}

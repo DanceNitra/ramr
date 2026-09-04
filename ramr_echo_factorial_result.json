@@ -1,0 +1,75 @@
+{
+  "model": "deepseek-v4-flash:0731-cloud",
+  "trials": 30,
+  "cells": [
+    {
+      "key": true,
+      "guard": true,
+      "tag": true,
+      "keeps_correction": 0.933,
+      "mean_records": 1.0,
+      "n": 30
+    },
+    {
+      "key": true,
+      "guard": true,
+      "tag": false,
+      "keeps_correction": 1.0,
+      "mean_records": 1.0,
+      "n": 30
+    },
+    {
+      "key": true,
+      "guard": false,
+      "tag": true,
+      "keeps_correction": 0.0,
+      "mean_records": 1.0,
+      "n": 30
+    },
+    {
+      "key": true,
+      "guard": false,
+      "tag": false,
+      "keeps_correction": 0.0,
+      "mean_records": 1.0,
+      "n": 30
+    },
+    {
+      "key": false,
+      "guard": true,
+      "tag": true,
+      "keeps_correction": 1.0,
+      "mean_records": 3.0,
+      "n": 30
+    },
+    {
+      "key": false,
+      "guard": true,
+      "tag": false,
+      "keeps_correction": 1.0,
+      "mean_records": 3.0,
+      "n": 30
+    },
+    {
+      "key": false,
+      "guard": false,
+      "tag": true,
+      "keeps_correction": 1.0,
+      "mean_records": 3.0,
+      "n": 30
+    },
+    {
+      "key": false,
+      "guard": false,
+      "tag": false,
+      "keeps_correction": 1.0,
+      "mean_records": 3.0,
+      "n": 30
+    }
+  ],
+  "main_effects_pp": {
+    "key": -51.675000000000004,
+    "guard": 48.324999999999996,
+    "tag": -1.6750000000000043
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "version": "0.5",
+  "model": "glm-5.2",
+  "traces": 120,
+  "pairs": 107,
+  "answered": 90,
+  "correct": 55,
+  "empty": 17,
+  "failures": {
+    "empty-or-unparseable": 10,
+    "TimeoutError": 6,
+    "http-429": 1
+  },
+  "accuracy": 0.6111111111111112
+}

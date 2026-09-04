@@ -73,7 +73,8 @@ dataset is redistributed; adapters take a path to your own copy.
 
 It caught us twice while we used it. A re-cut that "fixed" the length cue had merely **inverted** it
 (73% → 83% the other way, which one-directional scoring reads as *at chance*); and balancing the echo
-cue meant injecting a record whose distinctive id solved **205 of 300 traces**, while every probe
+cue meant injecting a record whose distinctive id let an id-shape rule solve **136 to 148 of 300
+traces at 95.2% to 100.0%**, measured over 100 rebuilds by `ramr_id_cue_reconstruction.py`, while every probe
 reported *at chance* because none of them looked at ids. Binary probes are now scored in both
 directions, and `leak:id-outlier` exists because of the second one.
 

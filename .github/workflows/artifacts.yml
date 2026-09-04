@@ -44,6 +44,13 @@ jobs:
       - name: value-echo shortcut (reports a known, unfixed leak)
         run: python ramr_traces_value_echo_shortcut.py
 
+      # ERRATA 4. A figure quoted in three files with no receipt behind it. This rebuilds the
+      # corpus under the id scheme that produced it and refuses if its own runs all agree, because
+      # the generator mints uuid4 ids and a point estimate here would be another unreproducible
+      # number. 20 runs is the CI budget; the published envelope is over 100.
+      - name: id-cue reconstruction (205 of 300 does not reproduce)
+        run: python ramr_id_cue_reconstruction.py --runs 20
+
       # The audit battery's own calibration: silent on synthetic clean data, sees a planted cue.
       # A shortcut battery with no null is a machine for manufacturing alarming numbers.
       - name: memaudit calibration (negative + positive control)

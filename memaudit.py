@@ -170,8 +170,16 @@ def probe_id_outlier(t):
     WRITTEN AFTER DOING IT. Balancing the echo cue meant adding a corroborating fact for the stale
     value, and the added record was given the id "sib-<chain_id>" while every other id was 10 hex
     characters. A scorer reading nothing but the id format could find that record, and its SUBJECT is
-    the stale value -- 205 of 300 traces solved outright by a cue introduced while removing one. Every
-    other probe here reported "at chance" on that corpus, because none of them looked at the ids.
+    the stale value -- a cue introduced while removing one. Every other probe here reported "at
+    chance" on that corpus, because none of them looked at the ids.
+
+    THE SIZE OF IT, corrected 2026-09-04. This docstring used to say "205 of 300 traces solved
+    outright". That figure has no receipt and does not reproduce. Measured over 20 rebuilds under
+    the old id scheme over 100 rebuilds, the cue lands on 204 of 300 traces every time and this rule
+    fires on 136 to 148 of them, right on 95.2% to 100.0%, against a permuted-label null at or below
+    1.0%. It never reaches 205. The range is a range because the generator mints uuid4 record ids, so
+    no rebuild matches another, and the bounds are an OBSERVED envelope over 100 runs rather than a
+    property of the corpus: 5 runs gave 138-143, 20 gave 139-146. See ramr_id_cue_reconstruction.py.
 
     So: find the minority id shape, take that record's first token, and return the candidate whose
     final token matches it. That is the exploit, generalised.

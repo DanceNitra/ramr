@@ -1,0 +1,13 @@
+{
+  "version": "0.5",
+  "model": "deepseek-v4-pro",
+  "traces": 120,
+  "pairs": 107,
+  "answered": 105,
+  "correct": 64,
+  "empty": 2,
+  "failures": {
+    "empty-or-unparseable": 2
+  },
+  "accuracy": 0.6095238095238096
+}
