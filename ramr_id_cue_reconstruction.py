@@ -76,6 +76,14 @@ def one_run():
         for f in ("ramr_traces_v03_recut.py", "memaudit.py", "ramr_trace_export.py"):
             shutil.copy(os.path.join(HERE, f), work)
         shutil.copytree(os.path.join(HERE, "data"), os.path.join(work, "data"))
+        # THE VENDORED PACKAGE COMES TOO. `ramr_trace_export` puts its own directory on sys.path
+        # and imports `inspeximus` from there, so a tempdir without it falls back to whatever is
+        # installed site-wide. That difference is invisible on a developer machine and fatal in CI,
+        # where nothing is installed: the rebuild died instantly and this probe reported only "the
+        # rebuild produced no corpus", which named the symptom and hid the cause.
+        vendored = os.path.join(HERE, "inspeximus")
+        if os.path.isdir(vendored):
+            shutil.copytree(vendored, os.path.join(work, "inspeximus"))
 
         recut = os.path.join(work, "ramr_traces_v03_recut.py")
         src = io.open(recut, encoding="utf-8").read()
@@ -86,12 +94,16 @@ def one_run():
         io.open(recut, "w", encoding="utf-8", newline="\n").write(patched)
 
         env = dict(os.environ, RAMR_TRACE_VER="0.4", RAMR_INJECT_SIBLING="1")
-        subprocess.run([sys.executable, "-X", "utf8", "ramr_traces_v03_recut.py"],
-                       cwd=work, env=env, capture_output=True, timeout=900)
+        r = subprocess.run([sys.executable, "-X", "utf8", "ramr_traces_v03_recut.py"],
+                           cwd=work, env=env, capture_output=True, text=True, timeout=900)
 
         blind = os.path.join(work, "ramr_traces_v0.4_blind.jsonl")
         if not os.path.exists(blind):
-            refuse("the rebuild produced no corpus, so there is nothing to audit")
+            # CARRY THE CAUSE, NOT THE SYMPTOM. The first version swallowed the child's stderr and
+            # refused with "there is nothing to audit", which is true and useless. The real message
+            # was ModuleNotFoundError.
+            refuse("the rebuild produced no corpus (exit %s). Its stderr: %s"
+                   % (r.returncode, ((r.stderr or "").strip() or "(empty)")[-600:]))
         planted = io.open(blind, encoding="utf-8").read().count("sib-")
         if planted == 0:
             refuse("no sib- id reached the rebuilt corpus, so this run measures a corpus without "
