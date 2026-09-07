@@ -16,24 +16,40 @@ identifiers:
     value: 10.5281/zenodo.20818813
     description: "Zenodo archive (v0.1.1)"
 abstract: >-
-  A contamination-resistant synthetic benchmark for agentic-RAG / memory systems.
-  Eleven headline metrics (conversion, chain-fragility, distraction, fact-retention-at-budget,
-  outcome-ranked recall, forget-precision, echo-resistance, compression-vs-raw, operational-continuity,
-  temporal-as-of, integrity-conditioned-recall) with pre-registered falsifiers, bootstrap confidence intervals, a
-  frozen sha256-pinned dataset, a single runner, a number-verification ledger, a reusable Folklore
-  Meter probe, and a four-gate preflight that refuses inadmissible comparisons.
+  A contamination-resistant synthetic benchmark for retrieval-backed agent memory, plus the
+  findings it produced and the tooling that keeps them honest. Eleven metrics (conversion,
+  chain-fragility, distraction, fact-retention-at-budget, outcome-ranked recall, forget-precision,
+  echo-resistance, compression-vs-raw, operational-continuity, temporal-as-of,
+  integrity-conditioned recall), each with a pre-registered falsifier and bootstrap CIs, over a
+  frozen sha256-pinned dataset of random-token entities (closed-book accuracy 0.000 by
+  construction). Headline results: one missing hop collapses a multi-hop answer (chain-fragility
+  +1.000, CI [1,1], n=200, two model families); ranking recall by was-it-right beats
+  was-it-recalled (+0.36 to +0.47 lift, every CI excludes zero); re-stating a retired value
+  resurrects it in a keyed store (echo-resistance 0.00) unless an object-keyed ledger refuses
+  the echo (1.00). The benchmark audits itself: memaudit.py reports the shortcut floor reachable
+  by surface-form rules alone, scored against permuted labels; on RAMR's own traces it read 97.2%
+  and the balanced re-cut brought it to 40.0%, with both leaks it caught recorded in ERRATA.md.
+  ramr_preflight.py runs four admissibility gates (budget parity, retrieval, liveness, parameter
+  efficacy) and aborts by naming the layer that died. The integrity/ module runs the same
+  questions against real stores (mem0, Zep/Graphiti, inspeximus) through one ground-truth-blind
+  judge. Every cited number is recomputed from its persisted source by verify_numbers.py.
 type: software
 authors:
   - family-names: "Drahoš"
     given-names: "Rastislav"
     website: "https://github.com/DanceNitra"
-version: "0.5.1"
-date-released: "2026-07-25"
+    affiliation: "Agora"
+version: "0.6.0"
+date-released: "2026-09-07"
 license: MIT
 url: "https://github.com/DanceNitra/ramr"
 repository-code: "https://github.com/DanceNitra/ramr"
 keywords:
   - benchmark
+  - shortcut-learning
+  - dataset-artifacts
+  - memory-integrity
+  - reproducibility
   - agent-memory
   - retrieval-augmented-generation
   - evaluation

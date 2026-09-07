@@ -1,0 +1,37 @@
+{
+  "title": "RAMR — Retrieval-Augmented Memory Reliability: a contamination-resistant benchmark for agent memory that audits itself",
+  "upload_type": "software",
+  "license": "MIT",
+  "access_right": "open",
+  "language": "eng",
+  "creators": [
+    {
+      "name": "Drahoš, Rastislav",
+      "affiliation": "Agora"
+    }
+  ],
+  "keywords": [
+    "agent memory",
+    "benchmark",
+    "retrieval-augmented generation",
+    "LLM evaluation",
+    "contamination resistance",
+    "dataset artifacts",
+    "shortcut learning",
+    "memory integrity",
+    "supersession",
+    "echo resistance",
+    "bi-temporal memory",
+    "reproducibility"
+  ],
+  "description": "<p><strong>RAMR</strong> is a small, reproducible, synthetic benchmark that isolates specific failure modes of retrieval-backed agent memory, together with the measurements it produced and the tooling that keeps those measurements honest. Entities are random tokens, so closed-book accuracy is 0.000 by construction and nothing in the dataset can have been memorised. The dataset is frozen with a sha256-pinned manifest; every cited number is recomputed from its persisted result file by <code>verify_numbers.py</code>, and a number without a row in <code>VERIFIED_NUMBERS.md</code> is not citable.</p>\n\n<p><strong>Eleven metrics</strong>, each with a pre-registered falsifier and bootstrap confidence intervals: CONVERSION, CHAIN-FRAGILITY, DISTRACTION, FACT-RETENTION-at-budget, OUTCOME-RANKED-RECALL, FORGET-PRECISION, ECHO-RESISTANCE, COMPRESSION-vs-RAW, OPERATIONAL-CONTINUITY, TEMPORAL-AS-OF and INTEGRITY-CONDITIONED RECALL.</p>\n\n<p><strong>Headline findings.</strong> (1) One missing hop collapses a multi-hop answer: CHAIN-FRAGILITY (gold − partial) is +1.000, CI [+1.000, +1.000], at n=200 on two model families, and +0.90 to +1.00 across seven models from six families. (2) Ranking recall by <em>was-it-right</em> beats <em>was-it-recalled</em>: OUTCOME-RANKED-RECALL lift +0.358 / +0.361 / +0.469 / +0.427 at ambiguity D=1/2/4/8 (n=12 sets), every bootstrap CI excludes zero, and a random-credit control is negative. An independent scikit-learn cosine retriever scores identically to the plain baseline (gap 0.000), so the baseline is not a strawman. (3) A correction that sticks can still be undone by re-stating the old value: ECHO-RESISTANCE is 0.00 for a keyed last-writer-wins store and 1.00 with an object-keyed superseded-value ledger, with FORGET-PRECISION unchanged at 1.00.</p>\n\n<p><strong>The benchmark audits itself.</strong> <code>memaudit.py</code> is a partial-input baseline battery (position, casing, length, token recurrence, query overlap, stray fields, id shape) that reports the <em>shortcut floor</em>: the accuracy reachable by rules that read only surface form, scored against permuted labels so its own chance level is measured rather than assumed. Run on RAMR's own traces it read 97.2% on v0.2; the connectivity-balanced v0.5 re-cut brought the floor to 40.0% at 1.7% coverage (LoCoMo, under RAMR's framing, reads 36.3%). The tool caught its author twice — an inverted length cue and an id-shape leak that no probe was looking at — and both incidents are recorded in <code>ERRATA.md</code>. A floor is a lower bound, never a verdict.</p>\n\n<p><strong>Preflight.</strong> <code>ramr_preflight.py</code> runs four admissibility gates before an answerer costs anything — budget parity, retrieval (evidence-in-context), liveness and parameter efficacy — and aborts by naming the layer that died. It was motivated by a comparison in which a memory arm at k=20 (1,323 chars) faced session-level BM25 (11,941 chars), a 9.03x gap; matched to 1.00x the accuracy moved 0.283 → 0.593 and the ranking flipped. <code>--demo</code> reproduces a refusal on the frozen dataset (20.67x FAIL / 1.00x PASS, evidence ceiling 1.000 on 300 chains); <code>--selftest</code> asserts every gate can still fail.</p>\n\n<p><strong>Cross-system integrity.</strong> The <code>integrity/</code> module asks the same reliability questions of real memory libraries on their native configurations through one shared, ground-truth-blind judge: value-obscuring REVERT, ECHO resurrection, an erasure self-check, and a deterministic bi-temporal cell. Measured answer-level echo-resistance (n=30): keyed store without guard 0.00; mem0 2.0.11 0.53 (95% CI on resurrection [0.30, 0.63]); Zep/Graphiti 0.87 raw, with 0 of 26 registered corrections flipped by the echo, so its residual is an upstream extraction miss rather than an echo failure; keyed store with echo guard 1.00. Results roll into a standing, PR-submittable Agent-Memory Integrity Leaderboard.</p>\n\n<p><strong>Limitations, stated first.</strong> Synthetic, not real-world; uneven n (CHAIN-FRAGILITY n=200, OUTCOME-RANKED n=12 sets, FACT-RETENTION n=5); one embedder for OUTCOME-RANKED; substring answer matching; and the traces leak by a published amount. RAMR does not claim to be the definitive agent-memory benchmark, that these magnitudes transfer to real corpora, or that shipped products underperform it where they were not run.</p>\n\n<p>Reference memory core: <a href=\"https://github.com/DanceNitra/inspeximus\">inspeximus</a> (<code>pip install inspeximus</code>). Website: <a href=\"https://dancenitra.github.io/ramr/\">dancenitra.github.io/ramr</a>.</p>",
+  "related_identifiers": [
+    {"identifier": "https://github.com/DanceNitra/ramr", "relation": "isSupplementTo", "resource_type": "software"},
+    {"identifier": "https://dancenitra.github.io/ramr/", "relation": "isDescribedBy", "resource_type": "publication-other"},
+    {"identifier": "https://pypi.org/project/inspeximus/", "relation": "requires", "resource_type": "software"},
+    {"identifier": "https://dancenitra.github.io/agora/public/leaderboard/", "relation": "isSupplementedBy", "resource_type": "dataset"},
+    {"identifier": "https://aclanthology.org/P19-1554/", "relation": "cites", "resource_type": "publication-conferencepaper"},
+    {"identifier": "https://arxiv.org/abs/2501.13956", "relation": "cites", "resource_type": "publication-preprint"}
+  ],
+  "notes": "Every number in this record is recomputed from a persisted result file by verify_numbers.py in the archived source tree. See VERIFIED_NUMBERS.md for the ledger and ERRATA.md for corrections."
+}

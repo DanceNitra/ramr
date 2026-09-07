@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAMR — Retrieval-Augmented Memory Reliability</title>
+<meta name="description" content="A contamination-resistant benchmark for agent memory that audited itself and published the leak first. Every number on this page is a receipt.">
+<meta property="og:title" content="RAMR — a memory benchmark that audits itself">
+<meta property="og:description" content="Shortcut floor 97.2% → 40.0%. Chain-fragility +1.00 at n=200. Echo-resistance measured across real stores. Every number recomputed from source.">
+<meta property="og:image" content="https://dancenitra.github.io/ramr/og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23050506'/%3E%3Ctext x='8' y='46' font-family='monospace' font-weight='700' font-size='34' fill='%2338f2d6'%3ER_%3C/text%3E%3C/svg%3E">
+<style>
+@font-face{font-family:InterV;src:url(fonts/inter-latin-400-normal.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:InterV;src:url(fonts/inter-latin-500-normal.woff2) format('woff2');font-weight:500;font-display:swap}
+@font-face{font-family:InterV;src:url(fonts/inter-latin-600-normal.woff2) format('woff2');font-weight:600;font-display:swap}
+@font-face{font-family:InterV;src:url(fonts/inter-latin-700-normal.woff2) format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:JBMono;src:url(fonts/jetbrains-mono-latin-400-normal.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:JBMono;src:url(fonts/jetbrains-mono-latin-700-normal.woff2) format('woff2');font-weight:700;font-display:swap}
+
+:root{
+  --bg:#050506;--panel:#0c0d10;--line:#1c1e23;--line2:#2a2d34;
+  --teal:#38f2d6;--amber:#f2a93b;--white:#f4f5f7;--grey:#929598;--dgrey:#525456;
+  --sans:InterV,system-ui,sans-serif;--mono:JBMono,ui-monospace,Menlo,monospace;
+  --measure:72ch;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{margin:0;background:var(--bg);color:var(--white);font-family:var(--sans);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--teal);text-decoration:none}
+a:hover{text-decoration:underline}
+code,pre,.mono{font-family:var(--mono)}
+:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
+
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+section{padding:96px 0;border-top:1px solid var(--line)}
+h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+h2{font-size:clamp(30px,4vw,44px);max-width:22ch}
+h2 + p{margin-top:18px}
+p{max-width:var(--measure);color:var(--grey);margin:0 0 1em}
+p strong{color:var(--white);font-weight:600}
+.small{font-size:14px;color:var(--dgrey)}
+
+/* nav */
+nav{position:sticky;top:0;z-index:10;background:rgba(5,5,6,.8);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:56px}
+nav .brand{font-family:var(--mono);font-weight:700;font-size:18px;color:var(--white);letter-spacing:.06em}
+nav .brand span{color:var(--teal)}
+nav ul{display:flex;gap:26px;list-style:none;margin:0;padding:0;font-size:14px}
+nav ul a{color:var(--grey)}
+nav ul a:hover{color:var(--white);text-decoration:none}
+@media (max-width:760px){nav ul{display:none}}
+
+/* hero */
+.hero{padding:88px 0 72px;border-top:0}
+.hero h1{font-size:clamp(40px,6.4vw,84px);max-width:16ch}
+.hero h1 em{font-style:normal;color:var(--amber)}
+.hero .lede{font-size:21px;max-width:60ch;margin:26px 0 0}
+.hero .video{margin-top:56px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel);box-shadow:0 40px 120px rgba(0,0,0,.55)}
+.hero video,.hero img{display:block;width:100%;height:auto}
+.cmds{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:22px}
+.cmd{font-family:var(--mono);font-size:15px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 18px;color:var(--white);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.cmd b{color:var(--dgrey);font-weight:400}
+.cmd span{overflow-wrap:anywhere}.cmd button{flex-shrink:0;font:inherit;font-size:12px;color:var(--grey);background:0;border:1px solid var(--line2);border-radius:6px;padding:4px 8px;cursor:pointer}
+.cmd button:hover{color:var(--teal);border-color:var(--teal)}
+
+/* receipts — the one idea */
+.n{font-family:var(--mono);color:var(--white);cursor:pointer;border-bottom:1px dotted var(--teal);padding-bottom:1px;background:0;border-top:0;border-left:0;border-right:0;font-size:inherit;font-weight:700;line-height:inherit}
+.n:hover{color:var(--teal)}
+.n.amber{color:var(--amber);border-bottom-color:var(--amber)}
+.n.amber:hover{color:var(--amber)}
+#receipt{position:fixed;inset:auto 0 0 0;z-index:20;transform:translateY(110%);transition:transform .28s cubic-bezier(.16,1,.3,1);background:var(--panel);border-top:1px solid var(--line2);box-shadow:0 -30px 80px rgba(0,0,0,.6)}
+#receipt.open{transform:none}
+#receipt .wrap{padding:22px 28px 26px;display:grid;grid-template-columns:1fr auto;gap:18px;align-items:start}
+#receipt h4{margin:0 0 6px;font-family:var(--mono);font-size:13px;color:var(--teal);font-weight:400}
+#receipt pre{margin:0;font-size:14px;line-height:1.5;white-space:pre-wrap;color:var(--white)}
+#receipt pre .c{color:var(--dgrey)}#receipt pre .k{color:var(--teal)}#receipt pre .a{color:var(--amber)}
+#receipt button{font:inherit;color:var(--grey);background:0;border:1px solid var(--line2);border-radius:6px;padding:6px 10px;cursor:pointer}
+.receipt-hint{font-size:14px;color:var(--dgrey);margin-top:14px}
+.receipt-hint u{text-decoration:none;border-bottom:1px dotted var(--teal);color:var(--grey)}
+
+/* headline findings */
+.findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:44px}
+.finding{background:var(--bg);padding:32px 28px}
+.finding .big{font-family:var(--mono);font-weight:700;font-size:56px;letter-spacing:-.03em;line-height:1;color:var(--teal)}
+.finding .big.amber{color:var(--amber)}
+.finding h3{font-size:19px;margin:18px 0 8px}
+.finding p{font-size:15px;margin:0}
+
+/* bars */
+.bars{margin-top:40px;display:grid;gap:14px}
+.bar{display:grid;grid-template-columns:230px 1fr 200px;gap:18px;align-items:center}
+.bar .lbl{font-weight:600;text-align:right}
+.bar .lbl small{display:block;color:var(--dgrey);font-weight:400;font-size:13px}
+.bar .track{height:38px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.bar .fill{height:100%;width:0;border-radius:8px;transition:width 1.1s cubic-bezier(.16,1,.3,1)}
+.bar .val{font-family:var(--mono);font-weight:700;font-size:26px;white-space:nowrap}
+.bar .val small{font-family:var(--mono);color:var(--dgrey);font-size:12px;margin-left:8px;font-weight:400}
+@media (max-width:700px){.bar{grid-template-columns:1fr}.bar .lbl{text-align:left}}
+.callout{margin-top:36px;border-left:3px solid var(--teal);padding:4px 0 4px 22px;max-width:70ch}
+.callout.amber{border-color:var(--amber)}
+.callout p{margin:0;color:var(--white)}
+.callout p + p{margin-top:8px;color:var(--grey)}
+
+/* chain */
+.chain{margin-top:40px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px}
+.chain .row{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+.hop{font-family:var(--mono);font-size:17px;padding:16px 22px;border:2px solid var(--line2);border-radius:10px;background:var(--bg);cursor:pointer;user-select:none;transition:all .25s;color:var(--white)}
+.hop:hover{border-color:var(--teal)}
+.hop.gone{border-color:var(--amber);color:var(--amber);text-decoration:line-through;opacity:.45;transform:scale(.94)}
+.link{width:44px;height:3px;background:var(--teal);transition:background .25s}
+.link.dead{background:var(--amber)}
+.arrow{width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:11px solid var(--teal);margin-right:6px;transition:border-color .25s}
+.arrow.dead{border-left-color:var(--amber)}
+.acc{margin-left:auto;font-family:var(--mono);font-weight:700;font-size:44px;color:var(--teal);min-width:150px;text-align:right;transition:color .25s}
+.acc.dead{color:var(--amber)}
+.chain .q{font-family:var(--mono);color:var(--grey);font-size:14px;margin-bottom:20px}
+.chain .q b{color:var(--white);font-weight:400}
+.chain .res{margin-top:22px;font-family:var(--mono);font-size:14px;color:var(--grey);min-height:22px}
+.chain .res b{color:var(--amber)}
+.chain .tip{margin-top:6px;font-size:13px;color:var(--dgrey)}
+@media (max-width:700px){.acc{margin-left:0;width:100%;text-align:left;margin-top:14px}}
+
+/* terminal */
+.term{margin-top:40px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.term .bar-t{height:40px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 16px;gap:8px;font-family:var(--mono);font-size:12px;color:var(--dgrey)}
+.term .bar-t i{width:10px;height:10px;border-radius:5px;background:var(--dgrey);display:inline-block}
+.term pre{margin:0;padding:20px 22px;font-size:15px;line-height:1.7;min-height:210px;white-space:pre-wrap}
+.term .p{color:var(--dgrey)}.term .a{color:var(--amber)}.term .k{color:var(--teal)}.term .c{color:var(--grey)}
+.term .cur{display:inline-block;width:9px;height:18px;background:var(--teal);vertical-align:-3px}
+
+/* metrics table */
+table{border-collapse:collapse;width:100%;margin-top:40px;font-size:15px}
+th,td{text-align:left;padding:14px 12px 14px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--dgrey);font-weight:500;font-size:13px}
+td:first-child{font-family:var(--mono);font-size:14px;color:var(--teal);white-space:nowrap;padding-right:22px}
+td:nth-child(2){color:var(--white)}
+td:nth-child(3){color:var(--grey);font-family:var(--mono);font-size:13px}
+@media (max-width:700px){table,thead,tbody,tr,td,th{display:block}th{display:none}td{padding:6px 0;border:0}tr{padding:14px 0;border-bottom:1px solid var(--line)}}
+
+/* cross-system */
+.xs{margin-top:40px;display:grid;gap:12px}
+.xs .r{display:grid;grid-template-columns:260px 1fr 120px;gap:18px;align-items:center}
+@media (max-width:700px){.xs .r{grid-template-columns:1fr}}
+
+/* limits */
+.limits{margin-top:36px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px 40px}
+.limits div{max-width:44ch}
+.limits h3{font-size:17px;margin-bottom:8px}
+.limits p{font-size:15px;margin:0}
+
+/* cite */
+.cite pre{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;font-size:14px;line-height:1.6;overflow:auto;margin-top:28px;color:var(--white)}
+.cite pre .k{color:var(--teal)}
+footer{padding:48px 0 64px;border-top:1px solid var(--line);color:var(--dgrey);font-size:14px}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s cubic-bezier(.16,1,.3,1)}
+.reveal.in{opacity:1;transform:none}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="brand" href="#top">RAMR<span>_</span></a>
+  <ul>
+    <li><a href="#floor">Self-audit</a></li>
+    <li><a href="#chain">Chain-fragility</a></li>
+    <li><a href="#preflight">Preflight</a></li>
+    <li><a href="#metrics">Metrics</a></li>
+    <li><a href="#stores">Real stores</a></li>
+    <li><a href="#limits">Limits</a></li>
+    <li><a href="#cite">Cite</a></li>
+    <li><a href="https://github.com/DanceNitra/ramr">GitHub</a></li>
+  </ul>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap">
+  <h1>A memory benchmark that audited itself <em>and published the leak first.</em></h1>
+  <p class="lede">RAMR measures where retrieval-backed agent memory fails: a missing hop, a distractor, a compacted summary, a correction that gets echoed back. It is synthetic on purpose, so nothing in it can have been memorised. And it ships the tool that measures how much of it can be solved without understanding it.</p>
+  <p class="receipt-hint">Every number on this page is a receipt. Click one, like <button class="n" data-r="cf">+1.000</button>, to see the file it was recomputed from.</p>
+
+  <div class="video">
+    <video autoplay muted loop playsinline poster="poster.jpg" aria-label="48-second walkthrough of RAMR's findings">
+      <source src="ramr-film.mp4" type="video/mp4">
+      <img src="ramr-readme.gif" alt="RAMR walkthrough">
+    </video>
+  </div>
+
+  <div class="cmds">
+    <div class="cmd"><span><b>$ </b>git clone https://github.com/DanceNitra/ramr</span><button data-copy="git clone https://github.com/DanceNitra/ramr">copy</button></div>
+    <div class="cmd"><span><b>$ </b>python verify_numbers.py</span><button data-copy="python verify_numbers.py">copy</button></div>
+    <div class="cmd"><span><b>$ </b>python memaudit.py --adapter demo</span><button data-copy="python memaudit.py --adapter demo">copy</button></div>
+  </div>
+</div></header>
+
+<section id="findings"><div class="wrap">
+  <h2>Three findings that survived their own falsifiers.</h2>
+  <p>Each one has a pre-registered falsifier, a bootstrap confidence interval, and a persisted result file that <code>verify_numbers.py</code> recomputes on every run. A number without a row in the ledger is not citable here.</p>
+  <div class="findings">
+    <div class="finding reveal">
+      <div class="big"><button class="n amber" data-r="cf">+1.00</button></div>
+      <h3>One missing hop collapses a multi-hop answer.</h3>
+      <p>CHAIN-FRAGILITY at n=200 on two model families: gold-chain accuracy 1.000, drop one hop, 0.000. CI [+1.000, +1.000]. Seven models across six families land between +0.90 and +1.00.</p>
+    </div>
+    <div class="finding reveal">
+      <div class="big"><button class="n amber" data-r="floor">97.2%</button></div>
+      <h3>Our first traces could be solved by surface rules alone.</h3>
+      <p>Position, length, a stray field. We wrote the auditor, ran it on ourselves, published the number, and re-cut the dataset until the floor fell to <button class="n" data-r="floor5">40.0%</button> at 1.7% coverage.</p>
+    </div>
+    <div class="finding reveal">
+      <div class="big"><button class="n" data-r="olift">+0.47</button></div>
+      <h3>Ranking recall by <em>was it right</em> beats <em>was it recalled</em>.</h3>
+      <p>OUTCOME-RANKED-RECALL lift +0.36 to +0.47 at ambiguity D=1…8, n=12 sets, every CI excludes zero. A random-credit control goes negative, so the gain is the outcome signal, not reranking noise.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="floor"><div class="wrap">
+  <h2>The shortcut floor. Published beside every score.</h2>
+  <p><code>memaudit.py</code> runs a partial-input battery over any trace set: position, casing, length, token recurrence, query overlap, stray fields, id shape. It reports the accuracy reachable by rules that read only surface form, and scores every probe against permuted labels so its own chance level is measured, not assumed. <strong>0 of 8 probes fire on clean synthetic data; a planted position cue reads 100% against a 0% null.</strong> Both directions are asserted in CI.</p>
+  <div class="bars" id="floorbars">
+    <div class="bar"><div class="lbl">RAMR traces v0.2<small>first cut</small></div><div class="track"><div class="fill" style="background:var(--amber)" data-w="97.2"></div></div><div class="val"><button class="n amber" data-r="floor">97.2%</button><small>cov 96.0%</small></div></div>
+    <div class="bar"><div class="lbl">RAMR traces v0.3<small>structural re-cut</small></div><div class="track"><div class="fill" style="background:var(--amber)" data-w="96.8"></div></div><div class="val"><button class="n amber" data-r="floor3">96.8%</button><small>cov 52.7%</small></div></div>
+    <div class="bar"><div class="lbl">RAMR traces v0.5<small>connectivity balanced</small></div><div class="track"><div class="fill" style="background:var(--teal)" data-w="40"></div></div><div class="val"><button class="n" data-r="floor5">40.0%</button><small>cov 1.7%</small></div></div>
+    <div class="bar"><div class="lbl">LoCoMo<small>for comparison, our framing</small></div><div class="track"><div class="fill" style="background:var(--grey)" data-w="36.3"></div></div><div class="val"><button class="n" data-r="locomo" style="color:var(--grey);border-color:var(--grey)">36.3%</button><small>cov 44.3%</small></div></div>
+  </div>
+  <div class="callout amber">
+    <p>It caught us twice while we used it. A re-cut that “fixed” the length cue had merely inverted it (73% → 83% the other way). Balancing the echo cue injected a record whose distinctive id let an id-shape rule solve 136 to 148 of 300 traces, while every probe reported <em>at chance</em>, because none looked at ids.</p>
+    <p>Binary probes are now scored in both directions and <code>leak:id-outlier</code> exists because of the second one. Both incidents are in <a href="https://github.com/DanceNitra/ramr/blob/main/ERRATA.md">ERRATA.md</a>, not deleted. A floor is a lower bound, never a verdict: a passing probe proves nothing.</p>
+  </div>
+</div></section>
+
+<section id="chain"><div class="wrap">
+  <h2>Pull a hop out of the chain. Watch the answer go.</h2>
+  <p>Three-hop questions over random synthetic tokens. Closed-book accuracy is <button class="n" data-r="closed">0.000</button> by construction, so a model cannot have seen these; with the complete chain in context it answers <button class="n" data-r="conv">1.000</button>. Click any fact below to drop it from the retrieved context.</p>
+  <div class="chain" id="chainbox">
+    <div class="q">Q: <b>What is the currency of the country where the company that employs Vorander is headquartered?</b></div>
+    <div class="row">
+      <div class="hop" data-i="0">Vorander works at Zyncorp</div>
+      <div class="link" data-l="1"></div><div class="arrow" data-l="1"></div>
+      <div class="hop" data-i="1">Zyncorp is headquartered in Quellmark</div>
+      <div class="link" data-l="2"></div><div class="arrow" data-l="2"></div>
+      <div class="hop" data-i="2">currency of Quellmark is the Drell</div>
+      <div class="acc" id="acc">1.000</div>
+    </div>
+    <div class="res" id="chainres">gold chain → accuracy 1.000</div>
+    <div class="tip">Measured: gold − partial = +1.000, CI [+1.000, +1.000], n=200, qwen3-coder:30b and glm-5.2. Not a retrieval score, a fragility score: the reader has everything except one link.</div>
+  </div>
+</div></section>
+
+<section id="preflight"><div class="wrap">
+  <h2>Was the comparison even admissible?</h2>
+  <p>A metric only means something if the arms were comparing the same thing. <code>ramr_preflight.py</code> runs four gates before an answerer costs anything: budget parity, retrieval (was the evidence in context), liveness, parameter efficacy. The gates stay separate so an abort <strong>names the dead layer</strong> instead of returning one unhelpful boolean.</p>
+  <div class="term">
+    <div class="bar-t"><i></i><i></i><i></i> bash — ramr</div>
+    <pre id="termout"></pre>
+  </div>
+  <div class="callout">
+    <p>Why it exists: a memory arm at k=20 (1,323 chars) was compared to session-level BM25 (11,941 chars), a <button class="n amber" data-r="parity">9.03x</button> budget gap. BM25 appeared to win. Matched to 1.00x, accuracy went <button class="n" data-r="parity">0.283 → 0.593</button> and the ranking flipped.</p>
+    <p>Those figures are from an external run and are not reproducible from this repo. The <code>--demo</code> numbers (20.67x FAIL, 1.00x PASS, evidence ceiling 1.000 on 300 chains) are. The separate-gates design and the parameter-efficacy gate came from u/jacksonxly in a public thread.</p>
+  </div>
+</div></section>
+
+<section id="metrics"><div class="wrap">
+  <h2>Eleven metrics. Each asks one question.</h2>
+  <p>All synthetic, all contamination-resistant, all with a falsifier. Where a number is bold in the ledger it is a headline; the rest are directional and say so.</p>
+  <table>
+    <thead><tr><th>Metric</th><th>The question</th><th>Measured</th></tr></thead>
+    <tbody>
+      <tr><td>CONVERSION</td><td>Does complete retrieval convert to a correct multi-hop answer?</td><td>1.000 gold, 0.000 closed-book</td></tr>
+      <tr><td>CHAIN-FRAGILITY</td><td>How much does one missing hop cost?</td><td>+1.000 CI[1,1] n=200</td></tr>
+      <tr><td>DISTRACTION</td><td>How much do irrelevant or look-alike facts cost?</td><td>+0.15 (llama3.1) to +0.60 (kimi-k2.6) at 60 distractors, model-specific</td></tr>
+      <tr><td>FACT-RETENTION</td><td>Does a compiled memory tier drop facts under a fixed budget?</td><td>loss +0.70 / +0.76 at 400 chars, M=48</td></tr>
+      <tr><td>OUTCOME-RANKED-RECALL</td><td>Does ranking by was-it-right beat was-it-recalled?</td><td>+0.36…+0.47, all CIs exclude 0</td></tr>
+      <tr><td>FORGET-PRECISION</td><td>After an update, does recall return the current value?</td><td>1.00 with supersession, 0.00 without</td></tr>
+      <tr><td>ECHO-RESISTANCE</td><td>After a correction, does re-stating the old value resurrect it?</td><td>0.00 keyed store, 1.00 with echo guard</td></tr>
+      <tr><td>COMPRESSION-vs-RAW</td><td>Does a compiled summary beat raw context, or only lose to it?</td><td>+0.00 / −0.40 / −0.55 at K=5/20/50 — an honest negative</td></tr>
+      <tr><td>OPERATIONAL-CONTINUITY</td><td>On resume, does the agent re-run an already-completed action?</td><td>tracks the budget floor with recency; 1.00 duplicates without</td></tr>
+      <tr><td>TEMPORAL-AS-OF</td><td>Does supersession resolve by validity time, not ingest order?</td><td>1.00 by valid_from, 0.00 by ingest order</td></tr>
+      <tr><td>INTEGRITY-CONDITIONED RECALL</td><td>After a revert or a poison, is the current value returned?</td><td>revert: 1.00 vs cosine-recency 0.00, n=100</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<section id="stores"><div class="wrap">
+  <h2>Then we ran it against the stores people actually use.</h2>
+  <p>The synthetic core is the method. The <code>integrity/</code> module is the cross-system cut: the same questions against real memory libraries, on their native configs, through one shared ground-truth-blind judge. Results roll into a standing, PR-submittable <a href="https://dancenitra.github.io/agora/public/leaderboard/">Agent-Memory Integrity Leaderboard</a>.</p>
+  <h3 style="margin-top:44px;font-size:20px">Echo-resistance, answer level. Higher is better.</h3>
+  <p class="small">Correct a fact, then re-state the old value. Does the current value come back? n=30 per system, judge LLM, each on its own config.</p>
+  <div class="xs" id="echobars">
+    <div class="r bar"><div class="lbl">inspeximus, guard off<small>the control</small></div><div class="track"><div class="fill" style="background:var(--amber)" data-w="0.6"></div></div><div class="val"><button class="n amber" data-r="echo">0.00</button></div></div>
+    <div class="r bar"><div class="lbl">mem0 2.0.11<small>add-based, native config</small></div><div class="track"><div class="fill" style="background:var(--grey)" data-w="53"></div></div><div class="val"><button class="n" data-r="echo" style="color:var(--grey);border-color:var(--grey)">0.53</button></div></div>
+    <div class="r bar"><div class="lbl">Zep / Graphiti<small>Neo4j + OpenAI, real runtime</small></div><div class="track"><div class="fill" style="background:var(--grey)" data-w="87"></div></div><div class="val"><button class="n" data-r="graphiti" style="color:var(--grey);border-color:var(--grey)">0.87</button></div></div>
+    <div class="r bar"><div class="lbl">inspeximus, guard on<small>object-keyed ledger</small></div><div class="track"><div class="fill" style="background:var(--teal)" data-w="100"></div></div><div class="val"><button class="n" data-r="echo">1.00</button></div></div>
+  </div>
+  <div class="callout">
+    <p>Graphiti’s 0.87 is not an echo failure. In the 26 of 30 cases where the correction registered, the echo flipped 0 of them. The residual 13% is an upstream extraction miss the echo neither causes nor exploits. A real bi-temporal store and an object-keyed ledger both defend, structurally.</p>
+    <p>The frontier both share: a value-obscuring echo (“go back to the old one”) carries no value to invalidate against and defeats object-level and edge-level defences alike. mem0 and Graphiti have no revert operation at all, which is a capability gap, not a tuning gap.</p>
+  </div>
+</div></section>
+
+<section id="limits"><div class="wrap">
+  <h2>Read these before you cite anything.</h2>
+  <div class="limits">
+    <div><h3>Synthetic, not real-world.</h3><p>Items are random tokens. That is what makes closed-book accuracy 0.000, and it is why RAMR does not measure real-document retrieval or real-conversation memory yet.</p></div>
+    <div><h3>Scale is uneven.</h3><p>CHAIN-FRAGILITY is n=200 with tight CIs. OUTCOME-RANKED is n=12 sets. FACT-RETENTION is n=5. Treat small-n magnitudes as directional and the orderings as the signal.</p></div>
+    <div><h3>One embedder.</h3><p>OUTCOME-RANKED uses local nomic-embed-text, validated against an independent scikit-learn cosine retriever that scores identically to the plain baseline (gap 0.000). Not yet against shipped products.</p></div>
+    <div><h3>The traces leak, and by how much is published.</h3><p>Shortcut floor 40.0% on v0.5. Run <code>memaudit.py</code> beside any score from these traces.</p></div>
+    <div><h3>Substring answer matching.</h3><p>Exact here because answers are unique tokens. It would be noisy on free-form text.</p></div>
+    <div><h3>What we do not claim.</h3><p>That RAMR is the definitive agent-memory benchmark, that these magnitudes transfer to real corpora, or that shipped products underperform it where we have not run them.</p></div>
+  </div>
+</div></section>
+
+<section id="cite" class="cite"><div class="wrap">
+  <h2>Cite the concept DOI. It always resolves to the latest version.</h2>
+  <p>Archived on Zenodo from each tagged release. The published v0.5.0 record reads “Agora” as the author and was left as it was; the name lands from v0.5.1 on, because a published record is permanent.</p>
+  <pre>Drahoš, R. (2026). <span class="k">RAMR — Retrieval-Augmented Memory Reliability</span> (Version 0.5.1) [Computer software].
+Zenodo. https://doi.org/10.5281/zenodo.20818291
+
+@software{ramr2026,
+  author  = {Drahoš, Rastislav},
+  title   = {RAMR — Retrieval-Augmented Memory Reliability},
+  year    = {2026},
+  doi     = {10.5281/zenodo.20818291},
+  url     = {https://github.com/DanceNitra/ramr},
+  license = {MIT}
+}</pre>
+</div></section>
+
+<footer><div class="wrap">
+  <span>RAMR is maintained by <a href="https://github.com/DanceNitra">Rastislav Drahoš</a> under Agora. MIT.</span>
+  <span>Reference memory core: <a href="https://github.com/DanceNitra/inspeximus">inspeximus</a> · <a href="https://github.com/DanceNitra/ramr/blob/main/VERIFIED_NUMBERS.md">VERIFIED_NUMBERS.md</a> · <a href="https://github.com/DanceNitra/ramr/blob/main/ERRATA.md">ERRATA.md</a></span>
+</div></footer>
+
+<div id="receipt" role="dialog" aria-label="Receipt"><div class="wrap">
+  <div><h4 id="rtitle"></h4><pre id="rbody"></pre></div>
+  <button id="rclose">close</button>
+</div></div>
+
+<script>
+/* ---------- receipts ---------- */
+const R = {
+  cf:{t:'ramr_scale_cf_result.json · verify_numbers.py',b:`<span class="c"># CHAIN-FRAGILITY = gold − partial, recomputed from the raw per-chain arrays</span>
+<span class="k">[VERIFIED]</span> CHAIN-FRAGILITY @n=200 qwen3-coder:30b  <span class="a">+1.000</span>  CI[1.0, 1.0]
+<span class="k">[VERIFIED]</span> CHAIN-FRAGILITY @n=200 glm-5.2:cloud     <span class="a">+1.000</span>  CI[1.0, 1.0]
+<span class="c"># n=40 pilot: +0.975 (one partial answered by chance) → tightened to +1.000 at n=200</span>`},
+  floor:{t:'memaudit.py · ERRATA.md',b:`<span class="c"># v0.2 traces, partial-input battery, best REAL probe combination</span>
+SHORTCUT FLOOR: <span class="a">97.2%</span> accuracy over 96.0% of traces
+<span class="c"># published first, then re-cut. A floor is a lower bound: these rules, not all rules.</span>`},
+  floor3:{t:'memaudit.py · ERRATA.md',b:`<span class="c"># v0.3 structural re-cut</span>
+SHORTCUT FLOOR: <span class="a">96.8%</span> over 52.7% of traces
+<span class="c"># the length cue was not fixed, it was inverted (73% → 83% the other way). Probes are now scored both directions.</span>`},
+  floor5:{t:'memaudit_ramr_v0.5.json',b:`"floor": {"probes_used": ["leak:id-outlier"], "fired": 5, "coverage": 0.0167, "accuracy": <span class="k">0.4</span>}
+<span class="c"># v0.5, connectivity balanced by construction. 300 traces. leak:id-outlier fires on 5.</span>`},
+  locomo:{t:'memaudit.py --adapter locomo (your own copy; nothing redistributed)',b:`SHORTCUT FLOOR: 36.3% over 44.3% of traces
+<span class="c"># a floor for OUR framing (every dialogue turn a candidate, single-evidence questions), not a verdict on LoCoMo.
+# LoCoMo shows no positional artifact and no stray label field — clean on both axes where ours leaked.</span>`},
+  olift:{t:'outcome_scale_result.json · n=12 sets',b:`<span class="k">[VERIFIED]</span> OUTCOME-LIFT D=1  +0.358  CI[+0.299, +0.420]  random-credit −0.30
+<span class="k">[VERIFIED]</span> OUTCOME-LIFT D=2  +0.361  CI[+0.316, +0.406]  random-credit −0.22
+<span class="k">[VERIFIED]</span> OUTCOME-LIFT D=4  <span class="a">+0.469</span>  CI[+0.424, +0.514]  random-credit −0.09
+<span class="k">[VERIFIED]</span> OUTCOME-LIFT D=8  +0.427  CI[+0.385, +0.469]  random-credit −0.07
+<span class="c"># independent sklearn NearestNeighbors(cosine) scores identically to the plain baseline (gap 0.000)</span>`},
+  closed:{t:'ramr_v0_result.json',b:`<span class="k">[VERIFIED]</span> contamination (closed-book)  <span class="k">0.000</span>  <span class="c"># random synthetic entities → cannot have been memorised</span>`},
+  conv:{t:'ramr_v0_result.json',b:`<span class="k">[VERIFIED]</span> CONVERSION (gold chain accuracy)  <span class="k">1.000</span>  n=40`},
+  parity:{t:'external run · retrieval_coverage.json, pilot_summary_*.json (not shipped here)',b:`G0 budget parity: memory arm k=20 = 1,323 chars   vs   session BM25 = 11,941 chars   → <span class="a">9.03x</span>
+matched: 11,916 vs 11,941 (1.00x)   accuracy 0.283 → <span class="k">0.593</span>   ranking flipped
+G1 retrieval: gold evidence absent from context on <span class="a">96.5%</span> of probes (reported as a ceiling beside accuracy)
+<span class="c"># reproducible from this repo instead: python ramr_preflight.py --demo → preflight_result.json</span>`},
+  echo:{t:'echo_resistance_result.json · ramr_echo_resistance_backends.py',b:`"verbatim": {"n": 30, "no_guard": {"forget_precision": 1.0, "echo_resistance": <span class="a">0.0</span>},
+                      "guard":    {"forget_precision": 1.0, "echo_resistance": <span class="k">1.0</span>}}
+"reworded": same.   "verdict": "PASS -- echo_guard raises echo-resistance without hurting forget-precision"
+<span class="c"># mem0 2.0.11 (gpt-4o-mini + text-embedding-3-small + Chroma): 0.53, 95% CI on resurrection [0.30, 0.63]</span>`},
+  graphiti:{t:'graphiti_echo_run.py · Neo4j + gpt-4o-mini, n=30',b:`raw echo-resistance <span class="a">0.87</span>   (26/30)
+pre-echo already stale: 4/30  <span class="c"># extraction miss: "Target entity not found"</span>
+post-echo flips among registered corrections: <span class="k">0 / 26</span>  → echo-attributable resurrection 0.00
+<span class="c"># bi-temporal invalidation surfaces the invalidated edge as a dedup candidate; the echo folds onto it.</span>`}
+};
+const rc=document.getElementById('receipt'),rt=document.getElementById('rtitle'),rb=document.getElementById('rbody');
+document.querySelectorAll('.n').forEach(b=>b.addEventListener('click',()=>{const r=R[b.dataset.r];if(!r)return;rt.textContent=r.t;rb.innerHTML=r.b;rc.classList.add('open');}));
+document.getElementById('rclose').addEventListener('click',()=>rc.classList.remove('open'));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')rc.classList.remove('open')});
+
+/* ---------- copy ---------- */
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);b.textContent='copied';setTimeout(()=>b.textContent='copy',1200)}catch(e){}}));
+
+/* ---------- reveal + bars ---------- */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;e.target.classList.add('in');e.target.querySelectorAll('.fill').forEach(f=>f.style.width=f.dataset.w+'%');if(e.target.id==='preflight')typeTerm();io.unobserve(e.target)}),{threshold:.25});
+document.querySelectorAll('.reveal,.bar,#preflight').forEach(el=>io.observe(el));
+
+/* ---------- chain ---------- */
+const hops=[...document.querySelectorAll('.hop')],acc=document.getElementById('acc'),res=document.getElementById('chainres');
+const gone=new Set();
+function paint(){
+  const dead=gone.size>0;
+  acc.textContent=dead?'0.000':'1.000';acc.classList.toggle('dead',dead);
+  document.querySelectorAll('[data-l]').forEach(l=>{const i=+l.dataset.l;l.classList.toggle('dead',gone.has(i-1)||gone.has(i))});
+  res.innerHTML=dead?`partial chain (${gone.size} hop${gone.size>1?'s':''} missing) → accuracy <b>0.000</b>. gold − partial = <b>+1.000</b>`:'gold chain → accuracy 1.000';
+}
+hops.forEach(h=>h.addEventListener('click',()=>{const i=+h.dataset.i;gone.has(i)?gone.delete(i):gone.add(i);h.classList.toggle('gone',gone.has(i));paint()}));
+
+/* ---------- terminal ---------- */
+const lines=[
+  ['p','$ '],['w','python ramr_preflight.py --demo\n'],
+  ['c','loaded frozen dataset: 300 chains, sha256 pinned\n\n'],
+  ['w','unequal:  G0 = '],['a','20.67x'],['w','  (wide_pool 2139 vs narrow_facts 103 chars)\n'],
+  ['a','  [FAIL   ] G0_budget_parity   (experiment design)\n'],
+  ['a','  DEAD LAYER: experiment design  → DO NOT report accuracy. Match the budget and re-run.\n\n'],
+  ['w','matched:  G0 =  '],['k','1.00x'],['w','   evidence ceiling 1.000 (300/300)\n'],
+  ['k','  ALL GATES PASS - the comparison is interpretable.\n'],
+  ['c','wrote preflight_result.json'],
+];
+let typed=false;
+function typeTerm(){
+  if(typed)return;typed=true;
+  const out=document.getElementById('termout');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let li=0,ci=0,html='';
+  const cur='<span class="cur"></span>';
+  function step(){
+    if(li>=lines.length){out.innerHTML=html;return}
+    const [cls,txt]=lines[li];
+    if(reduce||cls!=='w'&&cls!=='p'){html+=`<span class="${cls}">${txt}</span>`;li++;out.innerHTML=html+cur;setTimeout(step,reduce?0:120);return}
+    ci++;out.innerHTML=html+`<span class="${cls}">${txt.slice(0,ci)}</span>`+cur;
+    if(ci>=txt.length){html+=`<span class="${cls}">${txt}</span>`;li++;ci=0;setTimeout(step,li===2?350:60)}else setTimeout(step,14);
+  }
+  step();
+}
+</script>
+</body>
+</html>

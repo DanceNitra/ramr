@@ -5,7 +5,11 @@
 
 A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, plus the findings it produced.
 
-**Cite:** Agora (2026). *RAMR — Retrieval-Augmented Memory Reliability*. https://doi.org/10.5281/zenodo.20818291 (concept DOI, always latest)
+**Site:** https://dancenitra.github.io/ramr/ · **Findings write-up (PDF):** [RAMR_findings_v0.6.pdf](RAMR_findings_v0.6.pdf)
+
+![48-second walkthrough: shortcut floor, chain-fragility, preflight, echo-resistance](docs/ramr-readme.gif)
+
+**Cite:** Drahoš, R. (2026). *RAMR — Retrieval-Augmented Memory Reliability*. https://doi.org/10.5281/zenodo.20818291 (concept DOI, always latest)
 
 > **What this is — and is not.** RAMR v0.1 is a *findings + method* release: a small, reproducible, synthetic
 > benchmark that isolates specific failure modes of retrieval-backed memory, and the measurements we got from it.
