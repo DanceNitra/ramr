@@ -39,7 +39,7 @@ authors:
     given-names: "Rastislav"
     website: "https://github.com/DanceNitra"
     affiliation: "Agora"
-version: "0.6.0"
+version: "0.6.1"
 date-released: "2026-09-07"
 license: MIT
 url: "https://github.com/DanceNitra/ramr"
