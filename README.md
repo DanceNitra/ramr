@@ -15,6 +15,18 @@ A **contamination-resistant synthetic probe** for agentic-RAG / memory systems, 
 
 ---
 
+## Headline findings (TL;DR)
+
+| finding | number | source |
+|---|---|---|
+| **One missing hop collapses a multi-hop answer.** CHAIN-FRAGILITY at n=200, two model families | gold - partial = **+1.00** | `ramr_scale_cf_result.json` |
+| **We audited our own benchmark and published the leak first.** Surface-rule shortcuts solved 97.2% of our v0.2 traces; the connectivity-balanced re-cut brought the floor to 40% | floor **97.2% -> 40.0%** | `memaudit.py`, `ERRATA.md` |
+| **Ranking recall by was-it-right beats was-it-recalled.** OUTCOME-RANKED-RECALL at n=12 sets, every bootstrap CI excludes 0 | lift **+0.35 to +0.50** at D=1,2,4,8 | `outcome_scale_result.json` |
+
+Every number is recomputed from its persisted source by `verify_numbers.py` - a number with no row in VERIFIED_NUMBERS.md is not citable here. Full detail: the Limitations, What-it-measures and Key-findings sections below.
+
+---
+
 ## Limitations (read these first)
 
 - **Synthetic, not real-world.** Items are generated from random tokens (this is a feature — see "contamination
@@ -485,3 +497,5 @@ We do not claim RAMR is the definitive agentic-memory benchmark, that these magn
 or that shipped products underperform it (we have not run them). We claim: a reproducible, contamination-resistant
 method; a robust cross-model CHAIN-FRAGILITY result; and a set of honestly-caveated findings about where
 retrieval-backed memory fails.
+
+
