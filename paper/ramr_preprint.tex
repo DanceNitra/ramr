@@ -1,0 +1,461 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{url}
+
+\title{RAMR: A Contamination-Resistant Synthetic Benchmark for\\ Agentic Retrieval-Augmented Memory,\\ Audited by Its Own Shortcut Battery}
+\author{Rastislav Draho\v{S}\\ Agora -- an autonomous research organization, Nitra, Slovakia\\ \texttt{https://github.com/DanceNitra}}
+\date{September 8, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Benchmarks for retrieval-augmented generation (RAG) and agent memory mostly ask whether a system
+\emph{retrieves the right fact}. They rarely ask the reliability questions that arise after retrieval:
+which version of a fact wins after an update, whether a correction can be undone on command, whether a
+restated stale value resurrects, and what a missing reasoning hop costs. We present RAMR (Retrieval-Augmented
+Memory Reliability), a synthetic benchmark whose entities are random tokens, so closed-book accuracy is
+zero by construction and measured failures isolate retrieval and memory \emph{mechanisms} rather than
+parametric knowledge. RAMR ships eleven headline metrics with pre-registered falsifiers, bootstrap
+confidence intervals, a frozen sha256-pinned dataset, a single runner, a number-verification ledger that
+recomputes every cited headline from persisted arrays, and a four-gate preflight that refuses inadmissible
+comparisons. Cross-model results include a near-total collapse of three-hop accuracy when a single hop is
+withheld (chain-fragility $+1.00$, $n{=}200$, CI $[1.000,1.000]$, two model families), and a demonstration
+that ranking recall by outcome credit beats relevance-only ranking on near-duplicate conflicts (lift
+$+0.36$ to $+0.50$; $n{=}12$; every bootstrap CI excludes zero). A cross-system cut runs the same
+integrity questions against real memory libraries in their native configurations: mem0, run in its
+recommended configuration, resurrects a retired value under re-statement in about half of trials
+(0.53, 95\% CI $[0.37,0.70]$), while a bi-temporal store and an object-keyed ledger both defend
+structurally. Because evaluation artifacts are themselves evidence, RAMR ships its own shortcut
+auditor (\texttt{memaudit.py}), which reports what fraction of a benchmark surface rules can solve
+without reading it: our first trace generation leaked 97.2\% at 96\% coverage, we published that number
+first, and the connectivity-balanced re-cut brought the floor to 40\% while planting two new shortcuts
+that the auditor then caught. We describe this self-audit loop as a standing property of the benchmark,
+not a one-time fix. Every number in this paper traces to a persisted result file in the public
+repository.\footnote{Code: \url{https://github.com/DanceNitra/ramr}. Dataset DOI (concept, always
+latest): \url{https://doi.org/10.5281/zenodo.20818291}.}
+\end{abstract}
+
+\section{Introduction}
+
+Agents that act over long horizons accumulate memory, and the evaluation literature for that memory is
+dominated by \emph{recall}: did the store surface the right context for a query
+(LoCoMo~\cite{locomo}, LongMemEval~\cite{longmemeval}, MemoryAgentBench~\cite{memoryagentbench}). A
+production memory system faces a second family of questions that these benchmarks largely skip. When a
+fact is superseded, does recall return the current value? When the user says ``go back to what we had''
+without naming a value, can the store undo the correction? When a retired value is re-asserted -- by an
+innocent restatement or an attacker -- does the correction survive? When one hop of a multi-hop fact
+chain is missing from context, what remains of the answer?
+
+RAMR is a synthetic benchmark that makes these questions measurable. Its design point is
+\textbf{contamination resistance}: every entity in every chain is a random synthetic token (companies,
+countries, currencies, people), so a language model cannot have memorized the answers and closed-book
+accuracy is zero by construction. The trade-off is stated rather than hidden: synthetic tokens isolate
+mechanisms and do not predict real-corpus accuracy; magnitudes are directional, orderings are the
+signal.
+
+The benchmark's second property is \textbf{self-audit}. Because synthetic generation can leak shortcuts,
+RAMR ships a partial-input auditor (\texttt{memaudit.py}) that measures how much of the benchmark
+surface rules -- position, casing, length, token recurrence, id shape -- can solve without semantics.
+We ran that auditor on our own traces, published the worst number first (97.2\% of v0.2 traces solvable
+at 96\% coverage), fixed the generator, and watched the fix plant two new shortcuts. Section~\ref{sec:audit}
+reports this loop and the lesson it taught: for an eval artifact, ``fixed'' is a claim that can only be
+made against the current battery.
+
+The paper's contributions:
+\begin{itemize}
+\item a contamination-resistant, frozen, sha256-pinned synthetic benchmark for agentic memory, with
+eleven headline metrics covering chain integrity, distraction, compaction, outcome-ranked recall,
+forget precision, echo resistance, compression, operational continuity, bi-temporal resolution, and
+integrity-conditioned recall (Section~\ref{sec:metrics});
+\item a cross-system, real-store integrity cut (mem0, Zep/Graphiti, and the reference engine) run in
+each system's native configuration through a shared, ground-truth-blind judge, published as a standing
+leaderboard (Section~\ref{sec:crosssystem});
+\item a four-gate \emph{preflight} that refuses inadmissible comparisons before any answerer is billed
+(Section~\ref{sec:preflight});
+\item a shortcut-floor auditor with a permuted-label chance control, and a self-audit of our own trace
+generations that found -- and published -- three leaks, one of which does not reproduce (Section~\ref{sec:audit});
+\end{itemize}
+
+All numbers below are traceable to persisted result files in the public repository and are recomputed
+by a verification script; where a measurement is a reconstruction rather than the original run, the
+text says so.
+
+\section{Related work}
+\label{sec:related}
+
+\textbf{Recall-oriented memory benchmarks.} LoCoMo~\cite{locomo} measures long-conversation QA;
+LongMemEval~\cite{longmemeval} measures long-term chat memory across interaction types;
+MemoryAgentBench~\cite{memoryagentbench} tests agents over long-horizon memory. A 2025--2026 wave
+targets conflicts directly: MemConflict~\cite{memconflict}, BEAM~\cite{beam}, TOKI~\cite{toki},
+STALE~\cite{stale}, and Supersede~\cite{supersede} ask which of two conflicting facts a system serves.
+RAMR differs in scope: it treats recall as one gate and the \emph{lifecycle} of a fact (update, revert,
+echo, temporal order, operational resume) as the measured surface, and it runs the same adversarial
+fixture through real memory libraries in native configurations.
+
+\textbf{Shortcut detection.} Partial-input baselines that lower-bound what a benchmark rewards are
+established: Feng et al.~\cite{feng2019} formalize the position/content artifacts of NLP datasets and
+warn that a passing baseline ``does not mean the dataset is free of artifacts.'' RAMR's auditor adopts
+that position and adds a measured chance level: every probe is scored against permuted labels, so
+``REAL'' is decided by lift over an observed null rather than by coverage alone.
+
+\textbf{Belief revision and bitemporality.} Undoing a correction is belief revision
+(AGM~\cite{agm}; truth-maintenance~\cite{doyle}); serving the value that was true at a past time is
+bitemporal databases~\cite{snodgrass}. Zep~\cite{zep} and Graphiti~\cite{graphiti} document bi-temporal
+memory designs; RAMR's temporal-as-of metric checks the behavior, not the schema.
+
+\textbf{Memory poisoning.} MINJA~\cite{minja} and AgentPoison~\cite{agentpoison} demonstrate
+retrieval-poisoning attacks; PoisonedRAG~\cite{poisonedrag} shows retrieval corruption in RAG. RAMR's
+integrity-conditioned recall includes a poison scenario scoped as a \emph{warrant-channel}
+demonstration (Section~\ref{sec:results}): it lets a consumer branch on an externally-assigned trust
+label; it does not detect injection.
+
+\section{Design}
+\label{sec:metrics}
+
+\subsection{Contamination resistance and the frozen dataset}
+
+The dataset is 300 synthetic three-hop fact chains (person $\to$ company $\to$ headquarters $\to$
+currency), each entity drawn from random tokens. A frozen file set plus a sha256-pinned manifest is
+committed; the runner loads the frozen artifact and never regenerates mid-experiment. Each row carries
+the gold chain, the gold answer token, the hop to drop for the partial condition, and a distractor
+pool. Because every token is random, closed-book accuracy is 0.000 by construction, and we verify this
+on every run.
+
+\subsection{Metrics}
+
+Eleven headline metrics, each with a pre-registered falsifier and bootstrap CIs:
+
+\begin{enumerate}
+\item \textbf{CONVERSION} -- does complete retrieval convert to a correct multi-hop answer (gold-chain accuracy)?
+\item \textbf{CHAIN-FRAGILITY} -- gold minus partial accuracy when exactly one hop is withheld;
+\item \textbf{DISTRACTION} -- the cost of irrelevant context (gold minus noisy, swept over distractor load);
+\item \textbf{FACT-RETENTION} -- does a compiled/summarized memory tier drop facts at a hard character budget;
+\item \textbf{OUTCOME-RANKED-RECALL} -- does ranking by \emph{was-it-right} beat \emph{was-it-recalled};
+\item \textbf{FORGET-PRECISION} -- after an update, does recall return the current value;
+\item \textbf{ECHO-RESISTANCE} -- after a correction, does a value-preserving restatement of the retired value
+      resurrect it;
+\item \textbf{COMPRESSION-vs-RAW} -- does a compiled summary beat raw noisy context, or only lose to it;
+\item \textbf{OPERATIONAL-CONTINUITY} -- on resume after compaction, is an already-completed action re-executed;
+\item \textbf{TEMPORAL-AS-OF} -- does supersession resolve by validity time rather than ingest order;
+\item \textbf{INTEGRITY-CONDITIONED RECALL} -- after a supersession, revert, or poison, does recall return the
+      correct current value.
+\end{enumerate}
+
+Auxiliary metrics cover abstention (false recall) and cross-scope leakage. A reusable
+\emph{Folklore Meter} probes any single mechanism claim across a capability gradient and issues one of
+four verdicts (REAL / weak-model artifact / regime-specific / null); two worked examples are included
+in the repository.
+
+\subsection{Preflight: refusing inadmissible comparisons}
+\label{sec:preflight}
+
+A comparison means nothing if the arms were not admissible. RAMR ships four gates as a zero-dependency
+module pointed at \emph{your own} comparison: (G0) budget parity -- measured context budgets per arm;
+(G1) retrieval -- gold evidence present in the retrieved context, a per-probe gate whose aggregate is
+reported \emph{beside} accuracy as the evidence ceiling, never folded into it; (G2) liveness -- a
+missing positive control is a failure, not a skip; (G3) parameter efficacy -- asserting that a
+configuration knob actually changed behavior, whichever side of the API boundary it sits on. Each gate
+aborts naming its layer, because one folded boolean returns ``something died'' with the debugging still
+ahead. The gates were sharpened by public peer review (parameter-efficacy from u/jacksonxly), and the
+repo's demo reproduces a refusal (a 20.67$\times$ budget gap fails the gate; the matched rerun passes
+at 1.00$\times$) on the frozen dataset. Running the gates on our own headline arms -- whose budgets are
+equal by construction -- is deliberate: the convention only means something if we hold our own numbers
+to it. The demo's ceiling check also caught a bug in the demo itself (question-text routing collapsed
+81 collision groups); routing is by chain id now, and the source note stays.
+
+\subsection{The shortcut auditor}
+
+\texttt{memaudit.py} runs a partial-input baseline battery over labelled traces and reports a
+\emph{shortcut floor}: the fraction of items the surface rules solve without reading meaning. Two rules
+of interpretation apply. First, the floor is a lower bound -- these rules, not all possible rules, and
+per Feng et al. a passing probe proves nothing~\cite{feng2019}. Second, every probe is scored against
+\textbf{permuted labels} (the label moved to another candidate within the same trace, preserving set
+size, text, and order): that permutation is the probe's \emph{measured} chance level, and REAL is
+decided by lift over it, never by coverage. A CI test asserts both directions: zero of eight probes
+fire on clean synthetic data, and a planted position cue reads 100.0\% against a 0.0\% null.
+
+\section{Results}
+\label{sec:results}
+
+All numbers are recomputed from persisted arrays by the repository's verification ledger. Small-$n$
+magnitudes are directional; the orderings and the CI exclusions are the signal.
+
+\subsection{Chain integrity}
+
+\textbf{CHAIN-FRAGILITY is near-universal.} Withholding a single required hop collapses three-hop
+accuracy to near zero for every model tested: seven models across six families, chain-fragility
+$+0.90$ to $+1.00$. Two anchor models measured at $n{=}200$ with paired-bootstrap CIs give $+1.000$,
+CI $[+1.000,+1.000]$; the cross-family zoo at $n{=}20$ spans $+0.90$ to $+1.00$. At the $n{=}40$ pilot
+the value was $+0.975$ (one partial answered by chance). CONVERSION on the complete chain is $1.000$
+with closed-book accuracy $0.000$.
+
+\textbf{DISTRACTION is variable and model-specific} -- unlike chain-fragility, not universal. At 60
+distractors the drop ranges from $+0.15$ (llama3.1:8b) to $+0.60$ (kimi-k2.6), with Qwen at $+0.35$
+($n{=}20$). Adversarial lexical near-miss distractors \emph{did not} bite beyond raw volume: a strong
+reader pattern-matches the full entity token, so a shared three-character prefix is trivially
+distinguishable. We record the honest negative and the corrected design (query-anchor near-miss chains)
+for future cycles.
+
+\textbf{FACT-RETENTION: compaction is lossy under a fixed budget.} With 48 facts compressed under a hard
+400-character budget, every model loses facts on the compress-then-read-back round trip (retention
+losses $+0.70$ and $+0.76$ for two models, $n{=}5$ sets each), while the raw store recovers
+$0.96$--$1.00$. A separate programmatic packing-density ceiling (dense key--value packing, regex-scored,
+no LLM read-back) retains 0.49 -- an upper bound on what dense packing could preserve, reported as a
+method-different ceiling, not a like-for-like comparison.
+
+\subsection{Outcome-ranked recall}
+
+Ranking recall by outcome credit (``was it right when used'') beats relevance-only at every tested
+ambiguity level: lift $+0.358/+0.361/+0.469/+0.427$ at $D{=}1/2/4/8$ ($n{=}12$ sets; every bootstrap CI
+excludes zero; minimum lower bound $+0.299$). A random-credit control is negative ($-0.30$ to
+$-0.07$), so the gain is the outcome signal, not reranking noise. The comparison arms (relevance-only,
+BM25, dense vector, and an independent scikit-learn cosine retriever) are denied the outcome label by
+design; the independent scikit-learn retriever scores \emph{identically} to our standard-retriever arm
+(gap 0.000 at every $D$), confirming the baseline is faithful rather than a strawman. Outcome-ranked
+beats that independent baseline by $+0.469$ at $D{=}8$ (CI $[+0.438,+0.500]$). The comparison arms
+receive the outcome label by no path in this experiment; this is a value demonstration, not a
+head-to-head win over shipped products, and we say so.
+
+\subsection{Forgetting, echoes, and integrity}
+\label{sec:echo}
+
+\textbf{FORGET-PRECISION.} After a fact is superseded, recall returns the current value in 1.00 of
+cases for both an explicit contradiction and a silent numeric update ($n{=}30$ topics, 6 seeds), up
+from 0.00 without a supersession pass (the stale, higher-value fact otherwise wins every time). The
+detector is two-sided: a false-positive sweep on a six-item enumerated store reads 0.00.
+
+\textbf{ECHO-RESISTANCE (synthetic).} A correction that sticks can still be undone by re-stating the
+old value: a last-writer-wins store treats the echo as newest and resurrects the stale value
+(0.00 resistance, verbatim and reworded, $n{=}30$). An object-keyed ledger that refuses to revive an
+already-retired value restores 1.00 while leaving forget-precision unchanged.
+
+\textbf{ECHO-RESISTANCE (cross-system, answer-level).} Because a top-1 metric is a strawman for an
+add-based store that reconciles at read time, the cross-system cut scores at the \emph{answer} level
+(recall top-$k$, judge LLM, is the current value returned?) with each backend in its native
+configuration (Table~\ref{tab:echo}).
+
+\begin{table}[h]
+\centering
+\caption{Cross-system echo and forget behavior (answer-level; $n{=}30$; shared ground-truth-blind judge).}
+\label{tab:echo}
+\begin{tabular}{lcc}
+\toprule
+backend & forget-precision & echo-resistance \\
+\midrule
+mem0 2.0.11 (recommended config) & 0.87 & 0.53 (95\% CI $[0.37,0.70]$) \\
+Zep/Graphiti (Neo4j + OpenAI runtime) & 0.87 & 0.87\phantom{$^\dagger$} (echo-attributable 1.00$^\dagger$) \\
+reference engine, echo guard off & 1.00 & 0.00 \\
+reference engine, echo guard on & 1.00 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Graphiti's 0.87 is not an echo failure: disaggregated per case, the echo flipped 0 of the 26 cases in
+which the correction registered (echo-attributable resurrection 0/26); the residual four cases are
+upstream extraction misses. A real bi-temporal store and an object-keyed ledger both defend
+structurally. The shared open frontier is the \emph{value-obscuring} echo (``go back to the old one''),
+which carries no value to key on and defeats object-level and edge-level defenses alike.
+
+\textbf{Integrity-conditioned recall.} After a revert, only a system with an explicit revert-by-key
+returns the restored value (reference engine 1.00; cosine-recency 0.00; naive cosine 0.55 -- a
+coin-flip among candidates); a plain update is a tie with a fair recency baseline (both 1.00); the
+poison scenario demonstrates the warrant \emph{channel} (warranted arm 1.00 vs.\ everyone else 0.00)
+and is explicitly not injection detection. $n{=}100$ per scenario with bootstrap CIs.
+
+\textbf{TEMPORAL-AS-OF.} A stale fact about an earlier state arriving \emph{later} than the current one
+defeats last-write-wins by construction (now-accuracy 0.00). Resolution by validity time serves the
+current value (1.00) and point-in-time queries return the value that was valid at the queried time
+(1.00). Deterministic, 20 topics $\times$ 6 seeds.
+
+\textbf{OPERATIONAL-CONTINUITY.} On resume, the duplicate-side-effect rate tracks the recall-budget
+floor $\max(0,C-k)/C$ exactly when completions carry recency, and stays 1.00 at every budget without
+recency: recency weighting is what keeps current operational state recoverable as history grows.
+
+\subsection{Cross-system integrity: the revert capability}
+\label{sec:crosssystem}
+
+The value-obscuring revert -- undoing a correction from an unmarked ``go back'' -- is not one of the
+synthetic metrics; it is measured cross-system on native configurations with a shared, ground-truth-blind
+judge. On $n{=}20$: the reference engine (route/revert) restores the predecessor 0.75 (95\% CI
+$[0.53,0.89]$); mem0 2.0.11, which has no revert operation, retains the corrected value in 0.80 of
+ambiguous-to-the-judge cases (revert success 0.20, CI $[0.08,0.42]$); Graphiti 0.00 (CI $[0.00,0.16]$).
+The CIs of the top two systems do not overlap, so the \emph{capability} gap survives at $n{=}20$. We
+lead with the cell we do not win: echo resurrection is a tie at the store level -- every system
+defends -- and answer-level scoring is what separates designs (Table~\ref{tab:echo}). These results are
+rendered as a standing, PR-submittable leaderboard.
+
+\section{The shortcut audit of our own traces}
+\label{sec:audit}
+
+Evaluation artifacts are themselves evidence, so RAMR ships the auditor and points it inward first.
+
+\textbf{The floor, by generation.} Surface rules -- position, casing, length, token recurrence, query
+overlap, stray fields, id shape -- were scored against our labelled traces (Table~\ref{tab:floor}).
+The first generation leaked catastrophically: 97.2\% of v0.2 traces solvable at 96.0\% coverage. We
+published that number in the benchmark's README, beside the results it could have inflated, and shipped
+the auditor in the same repository. The structural re-cut (v0.3) fixed the planted positional cue and
+the per-item kind label but only moved the floor to 96.8\% at 52.7\% coverage; the
+connectivity-balanced v0.5 re-cut brought the floor to 40.0\% at 1.7\% coverage. For discipline, the
+table includes LoCoMo scored under our framing (every dialogue turn as a candidate, single-evidence
+questions only): 36.3\% at 44.3\% coverage. That row is a floor under our framing, not a verdict on
+their benchmark, which is clean on the two axes where ours leaked (no positional artifact, no stray
+label field).
+
+\begin{table}[h]
+\centering
+\caption{Shortcut floor by trace generation (the fraction surface rules solve, with coverage).}
+\label{tab:floor}
+\begin{tabular}{lcc}
+\toprule
+trace generation & shortcut floor & coverage \\
+\midrule
+v0.2 & \textbf{97.2\%} & 96.0\% \\
+v0.3 (structural re-cut) & 96.8\% & 52.7\% \\
+v0.5 (connectivity balanced) & \textbf{40.0\%} & \textbf{1.7\%} \\
+LoCoMo (our framing) & 36.3\% & 44.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Fixing leaks planted more.} A re-cut that ``fixed'' the length cue had merely inverted it
+(73\% right became 83\% right \emph{in the opposite direction}, which one-directional scoring reads as
+chance); the probe had to score sign, not presence. Balancing the echo cue injected a record whose
+distinctive id let an id-shape rule fire: rebuilding the corpus 100 times under the old scheme, the
+rule fires on 136--148 of 300 traces and is right on 95.2--100.0\% of those fires, against a
+permuted-label null at or below 1.0\%. The envelope widens with the number of rebuilds, so the probe
+refuses to print a point estimate. A previously quoted ``205 of 300'' had no receipt and does not
+reproduce: the effect is real, the magnitude is not, and because the reconstruction is not the original
+run the correct claim is ``205 does not reproduce,'' not ``the original was wrong.'' A third shortcut
+-- the stale value is built by borrowing a final token, so the current value echoes elsewhere in 206 of
+300 traces while the stale value echoes in 5 -- survives in every generation to date: two string rules
+reach 98.9\% at 87.7\% coverage. Until the generator draws stale values as well-connected as current
+ones, that baseline is the ceiling on what the fixture can license.
+
+\textbf{The treadmill.} Each fix changed the distribution; each change re-shuffled what surface rules
+could see; the auditor caught something new twice while we were using it. ``Fixed'' is a claim one can
+make only against the current battery. We state this as a property of the artifact rather than a one-time
+cleanup: the shortcut battery runs in CI, every generation's floor is published, and a revised dataset
+gets a published diff rather than a silent edit. The honest ledger also records what is still open --
+trace ids are not content-addressed, so no shipped artifact regenerates byte-for-byte yet.
+
+\section{Limitations}
+
+\begin{itemize}
+\item Synthetic scope: random-token entities isolate mechanisms and cannot measure real-corpus
+retrieval or real-conversation memory; magnitudes are directional, orderings are the signal.
+\item Small $n$ on several metrics (OUTCOME-RANKED at $n{=}12$ sets, FACT-RETENTION at $n{=}5$; the
+cross-system integrity cells at $n{=}20$--$30$); bootstrap CIs are reported throughout.
+\item The cross-system integrity comparisons run shared-fixture, native-configuration cells, not a
+leaderboard sweep of every product; shipped products were not tuned or benchmarked beyond the cells
+reported here.
+\item The shortcut battery is a lower bound on shortcuts, not a completeness proof.
+\item Answer matching on the synthetic core is substring-based over unique tokens; free-form answers
+would be noisy.
+\item The preflight demo's external-motivation numbers (a 9.03$\times$ budget gap, 96.5\% evidence
+coverage) come from a corpus not shipped with the repository and are cited from that run's persisted
+files; the demo's own numbers are reproducible from the repository.
+\end{itemize}
+
+\section{Artifacts}
+
+All code, the frozen dataset, the runner, the auditor, the preflight gates, the verification ledger,
+and the full errata history are MIT-licensed and public.\footnote{\url{https://github.com/DanceNitra/ramr};
+dataset: \url{https://doi.org/10.5281/zenodo.20818291}; HF dataset card:
+\url{https://huggingface.co/datasets/Danchi17/ramr}.} The cross-system integrity results are rendered as a
+standing leaderboard that accepts submissions through a documented adapter interface. The errata file
+names file hashes so that any reader can determine which artifact generation they hold.
+
+\section{Conclusion}
+
+Reliability questions -- which value wins, whether a correction can be undone, whether a restatement
+resurrects a stale fact, what a missing hop costs -- are measurable, adversarially, and contamination
+resistance is the cheapest way to make such a benchmark un-gameable by memorization. The same
+discipline applied inward is the part we would most like to see copied: an eval artifact that publishes
+its own shortcut floor, ships its errata as a diff, and refuses to call itself fixed until the current
+battery says so.
+
+\bibliographystyle{plain}
+\begin{thebibliography}{99}
+
+\bibitem{locomo} A.~Maharana et al.
+\newblock Evaluating Very Long-Term Conversational Memory of LLM Agents.
+\newblock arXiv:2402.17753, 2024.
+
+\bibitem{longmemeval} D.~Wu et al.
+\newblock LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory.
+\newblock arXiv:2410.10813, 2024.
+
+\bibitem{memoryagentbench} The MemoryAgentBench authors.
+\newblock Evaluating Memory in LLM Agents via Incremental Multi-Turn Interactions.
+\newblock arXiv:2507.05257, 2025.
+
+\bibitem{memconflict} The MemConflict authors.
+\newblock Measuring conflict resolution in agent memory.
+\newblock arXiv:2605.20926, 2026.
+
+\bibitem{beam} The BEAM authors.
+\newblock BEAM: benchmarking memory update and conflict resolution.
+\newblock arXiv:2510.27246, 2025.
+
+\bibitem{toki} The TOKI authors.
+\newblock Temporal knowledge conflict in agent memory.
+\newblock arXiv:2606.06240, 2026.
+
+\bibitem{stale} The STALE authors.
+\newblock Stale-value serving in long-lived agent memory.
+\newblock arXiv:2605.06527, 2026.
+
+\bibitem{supersede} The Supersede authors.
+\newblock Supersede: memory update semantics for LLM agents.
+\newblock arXiv:2606.27472, 2026.
+
+\bibitem{feng2019} S.~Feng, J.~E. Wallace, and P.~D. Boyd-Graber.
+\newblock Misleading Failures of Partial-Input Baselines.
+\newblock In \emph{Proceedings of ACL 2019}, 2019.
+
+\bibitem{agm} C.~E. Alchourr\'on, P.~G\"ardenfors, and D.~Makinson.
+\newblock On the Logic of Theory Change: Partial Meet Contraction and Revision Functions.
+\newblock Journal of Symbolic Logic, 50(2):510--530, 1985.
+
+\bibitem{doyle} J.~Doyle.
+\newblock A Truth Maintenance System.
+\newblock Artificial Intelligence, 12(3):231--272, 1979.
+
+\bibitem{snodgrass} R.~T. Snodgrass.
+\newblock Developing Time-Oriented Database Applications in SQL.
+\newblock Morgan Kaufmann, 2000. (Bitemporal semantics standardized in SQL:2011.)
+
+\bibitem{minja} The MINJA authors.
+\newblock MINJA: memory injection attack on retrieval-augmented agents.
+\newblock arXiv:2503.03704, 2025.
+
+\bibitem{agentpoison} S.~Chen et al.
+\newblock AgentPoison: Red-teaming Memory Attacks on Agent Systems.
+\newblock Advances in Neural Information Processing Systems (NeurIPS), 2024.
+
+\bibitem{poisonedrag} Y.~Zou et al.
+\newblock PoisonedRAG: Weaknesses of Retrieval-Augmented Generation.
+\newblock USENIX Security Symposium, 2025.
+
+\bibitem{zep} The Zep authors.
+\newblock Zep: A Temporal Knowledge Graph Architecture for Agent Memory.
+\newblock arXiv:2501.13956, 2025.
+
+\bibitem{graphiti} Getzep.
+\newblock Graphiti: knowledge graph memory for agents.
+\newblock \url{https://github.com/getzep/graphiti}, software, 2025--2026.
+
+\bibitem{mem0} The mem0 authors.
+\newblock mem0ai, version 2.0.11, software.
+\newblock \url{https://github.com/mem0ai/mem0}, 2024--2026.
+
+\end{thebibliography}
+
+\end{document}
+
