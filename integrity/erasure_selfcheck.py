@@ -16,6 +16,16 @@ A test that cannot fail measures nothing; the control is what makes `absent` mea
 An `instrument` row runs the same reader against a directory where the marker is written and nothing is
 deleted. It must report PRESENT. If it does not, the reader is broken and every other row is void.
 
+A compaction step that raises is reported as `compaction-failed`, with no verdict. An earlier version
+swallowed the exception and reported PRESENT for LanceDB after zero compaction had run (its two
+compaction methods raise ImportError without `pylance` and are deprecated); the supported
+`Table.optimize()` clears the marker. A verdict after a step that never ran is the instrument's, not the
+store's.
+
+The `qdrant-local` row is `qdrant_client` in local mode (`QdrantClient(path=...)`): a SQLite table of
+pickled points with no segments and no optimizer. It says nothing about the Qdrant server, whose
+`deleted_threshold` and `vacuum_min_vector_number` thresholds a two-point collection never reaches.
+
 Honest scope (read before drawing conclusions):
   * This checks LOGICAL residue in the store's own files after delete()+compaction. It does NOT test at-rest
     security (free space / SSD over-provisioning / backups): a PLAINTEXT store of ANY library leaves bytes
@@ -63,6 +73,17 @@ def _emb():
     return lambda t: m.encode([t])[0].tolist()
 
 
+class CompactionFailed(Exception):
+    """The backend's documented compaction could not run; there is no verdict."""
+
+
+def _compact(fn, *a, **kw):
+    try:
+        return fn(*a, **kw)
+    except Exception as ex:  # a swallowed exception here once reported PRESENT after zero compaction
+        raise CompactionFailed("%s: %s" % (getattr(fn, "__name__", "compaction"), repr(ex)[:60]))
+
+
 def _verdict(d, note=""):
     """(marker present after delete+compaction, control marker still present, file or note)."""
     _vacuum(d)
@@ -108,7 +129,7 @@ def check_chroma():
     d = tempfile.mkdtemp(); e = _emb()
     cl = chromadb.PersistentClient(path=d); c = cl.get_or_create_collection("selfcheck")
     c.add(ids=["x", "k"], embeddings=[e(MARK), e(KEEP)], documents=[MARK, KEEP]); c.delete(ids=["x"]); cl = None
-    return _verdict(d)
+    return _verdict(d, " (WAL rows purge once hnsw:sync_threshold, default 1000, is crossed; not crossed here)")
 CHECKS["chroma"] = check_chroma
 
 def check_qdrant():
@@ -120,7 +141,7 @@ def check_qdrant():
                             PointStruct(id=2, vector=w, payload={"t": KEEP})])
     qc.delete("sc", points_selector=[1]); del qc
     return _verdict(d)
-CHECKS["qdrant"] = check_qdrant
+CHECKS["qdrant-local"] = check_qdrant   # local mode only: SQLite, no segments, no optimizer; not the server
 
 def check_lancedb():
     import lancedb, datetime
@@ -128,10 +149,7 @@ def check_lancedb():
     t = lancedb.connect(d).create_table("sc", data=[{"id": 1, "text": MARK, "vector": e(MARK)},
                                                     {"id": 2, "text": KEEP, "vector": e(KEEP)}])
     t.delete("id = 1")
-    try: t.cleanup_old_versions(older_than=datetime.timedelta(seconds=0))
-    except Exception:
-        try: t.compact_files()
-        except Exception: pass
+    _compact(t.optimize, cleanup_older_than=datetime.timedelta(seconds=0))   # the supported compaction
     return _verdict(d)
 CHECKS["lancedb"] = check_lancedb
 
@@ -146,6 +164,8 @@ def run(want):
             present, control, note = fn()
         except ImportError:
             rows.append((name, "not-installed", "")); continue
+        except CompactionFailed as ex:
+            rows.append((name, "compaction-failed", str(ex))); continue
         except Exception as ex:
             rows.append((name, "error", repr(ex)[:80])); continue
         if name == "instrument":
@@ -170,8 +190,8 @@ def main(argv):
     print("-" * 74)
     print("This is YOUR result. 'PRESENT' = the marker's bytes are still in the store's files after its own")
     print("delete + VACUUM (logical residue). 'absent' = gone from the files, and the undeleted control marker")
-    print("is still there, so the store deleted what it was asked to and nothing more. 'control-failed' = no")
-    print("verdict. It is NOT an at-rest-security verdict (plaintext stores of any library leave bytes in free")
+    print("is still there, so the store deleted what it was asked to and nothing more. 'control-failed' and")
+    print("'compaction-failed' = no verdict. It is NOT an at-rest-security verdict (plaintext stores leave bytes in free")
     print("space/backups - use FDE + crypto-erasure). If a result surprises you, raise it with that project via")
     print("coordinated disclosure. inspeximus adds content-free deletion + shred().")
     return 2 if any(s == "BROKEN" for _, s, _ in rows) else 0
