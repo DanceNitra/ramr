@@ -34,6 +34,8 @@ Honest scope (read before drawing conclusions):
     read through the store's own files; it says nothing about purge.
   * A backend that keeps deleted values in an AUDIT/HISTORY log by design (some do) is a design choice, not a
     bug - it will show as "present (audit log)"; call the backend's documented purge (e.g. reset()) to clear it.
+  * The reader is a byte-substring search. A store that compresses or encodes its pages would pass
+    without deleting anything; a file the reader cannot open is reported as no verdict, never as absent.
   * Deterministic; run it yourself. Only backends you have installed are tested.
 
 Usage:  python erasure_selfcheck.py            # auto-detect installed backends
@@ -47,14 +49,18 @@ KEEP = "ERASURE-SELFCHECK-KEEP-7Q2X"     # stored, never deleted: the positive c
 MB, KB = MARK.encode(), KEEP.encode()
 
 
+UNREADABLE = []   # files the reader could not open; a hidden file is a hidden verdict
+
+
 def _residue(d, needle=MB):
     for f in glob.glob(os.path.join(d, "**", "*"), recursive=True):
         if os.path.isfile(f):
             try:
-                if needle in open(f, "rb").read():
-                    return os.path.basename(f)
-            except Exception:
-                pass
+                with open(f, "rb") as fh:
+                    if needle in fh.read():
+                        return os.path.basename(f)
+            except Exception as ex:
+                UNREADABLE.append("%s: %s" % (os.path.basename(f), type(ex).__name__))
     return ""
 
 
@@ -87,8 +93,12 @@ def _compact(fn, *a, **kw):
 def _verdict(d, note=""):
     """(marker present after delete+compaction, control marker still present, file or note)."""
     _vacuum(d)
+    del UNREADABLE[:]
     r = _residue(d)
-    return bool(r), bool(_residue(d, KB)), (r + note if r else "")
+    control = bool(_residue(d, KB))
+    if UNREADABLE and not r:
+        raise CompactionFailed("unreadable file(s) in the store, no verdict: " + ", ".join(UNREADABLE[:3]))
+    return bool(r), control, (r + note if r else "")
 
 
 CHECKS = {}   # name -> callable() -> (present_after_delete_and_compaction, control_present, file_or_note)
