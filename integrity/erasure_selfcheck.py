@@ -90,18 +90,25 @@ def _compact(fn, *a, **kw):
         raise CompactionFailed("%s: %s" % (getattr(fn, "__name__", "compaction"), repr(ex)[:60]))
 
 
-def _verdict(d, note=""):
-    """(marker present after delete+compaction, control marker still present, file or note)."""
+def _verdict(d, note="", query=None):
+    """(marker present after delete+compaction, control marker still present, file or note, query).
+
+    `query` is what the store's OWN API answered for the deleted marker after the delete: True when a
+    read or search still returned it, False when it did not, None when the backend was not asked.
+    It is reported in its own column, never folded into the byte verdict: a store can be silent to
+    every query and still hold the bytes, and that pair is the finding (suggested by Yaroslav
+    Goncharov, 2026-09-18: report query absence separately from retained bytes).
+    """
     _vacuum(d)
     del UNREADABLE[:]
     r = _residue(d)
     control = bool(_residue(d, KB))
     if UNREADABLE and not r:
         raise CompactionFailed("unreadable file(s) in the store, no verdict: " + ", ".join(UNREADABLE[:3]))
-    return bool(r), control, (r + note if r else "")
+    return bool(r), control, (r + note if r else ""), query
 
 
-CHECKS = {}   # name -> callable() -> (present_after_delete_and_compaction, control_present, file_or_note)
+CHECKS = {}   # name -> callable() -> (present_after_delete_and_compaction, control_present, file_or_note, query_visible)
 
 def check_instrument():
     d = tempfile.mkdtemp()
@@ -116,7 +123,8 @@ def check_inspeximus():
     m.remember(MARK, key="k::sc", source={"doc": "sc"}, pii=True)
     m.remember(KEEP, key="k::keep", source={"doc": "keep"}, pii=True); m._save(force=True)
     m.forget_subject("sc", request_id="sc"); m._save(force=True)
-    return _verdict(d)
+    q = any(MARK in str(x) for x in (m.recall(MARK, k=5) or []))
+    return _verdict(d, query=q)
 CHECKS["inspeximus"] = check_inspeximus
 
 def check_mem0():
@@ -130,16 +138,23 @@ def check_mem0():
     for r in (a.get("results") or []) if isinstance(a, dict) else []:
         try: mm.delete(r.get("id"))
         except Exception: pass
+    try:
+        g = mm.get_all(user_id="u")
+    except (TypeError, ValueError):          # mem0ai 2.x takes filters=, 1.x took user_id=
+        g = mm.get_all(filters={"user_id": "u"})
+    rows_ = (g.get("results") or []) if isinstance(g, dict) else (g or [])
+    q = any(MARK in str(x) for x in rows_)
     del mm
-    return _verdict(d, " (note: mem0 keeps a history log by design; reset() purges)")
+    return _verdict(d, " (note: mem0 keeps a history log by design; reset() purges)", query=q)
 CHECKS["mem0"] = check_mem0
 
 def check_chroma():
     import chromadb
     d = tempfile.mkdtemp(); e = _emb()
     cl = chromadb.PersistentClient(path=d); c = cl.get_or_create_collection("selfcheck")
-    c.add(ids=["x", "k"], embeddings=[e(MARK), e(KEEP)], documents=[MARK, KEEP]); c.delete(ids=["x"]); cl = None
-    return _verdict(d, " (WAL rows purge once hnsw:sync_threshold, default 1000, is crossed; not crossed here)")
+    c.add(ids=["x", "k"], embeddings=[e(MARK), e(KEEP)], documents=[MARK, KEEP]); c.delete(ids=["x"])
+    q = bool(c.get(ids=["x"]).get("ids")); cl = None
+    return _verdict(d, " (WAL rows purge once hnsw:sync_threshold, default 1000, is crossed; not crossed here)", query=q)
 CHECKS["chroma"] = check_chroma
 
 def check_qdrant():
@@ -149,8 +164,9 @@ def check_qdrant():
     qc = QdrantClient(path=d); qc.create_collection("sc", vectors_config=VectorParams(size=len(v), distance=Distance.COSINE))
     qc.upsert("sc", points=[PointStruct(id=1, vector=v, payload={"t": MARK}),
                             PointStruct(id=2, vector=w, payload={"t": KEEP})])
-    qc.delete("sc", points_selector=[1]); del qc
-    return _verdict(d)
+    qc.delete("sc", points_selector=[1])
+    q = bool(qc.retrieve("sc", ids=[1])); del qc
+    return _verdict(d, query=q)
 CHECKS["qdrant-local"] = check_qdrant   # local mode only: SQLite, no segments, no optimizer; not the server
 
 def check_lancedb():
@@ -160,7 +176,8 @@ def check_lancedb():
                                                     {"id": 2, "text": KEEP, "vector": e(KEEP)}])
     t.delete("id = 1")
     _compact(t.optimize, cleanup_older_than=datetime.timedelta(seconds=0))   # the supported compaction
-    return _verdict(d)
+    q = t.count_rows("id = 1") > 0
+    return _verdict(d, query=q)
 CHECKS["lancedb"] = check_lancedb
 
 
@@ -169,21 +186,22 @@ def run(want):
     for name in want:
         fn = CHECKS.get(name)
         if not fn:
-            rows.append((name, "not-a-known-check", "")); continue
+            rows.append((name, "not-a-known-check", "", "")); continue
         try:
-            present, control, note = fn()
+            present, control, note, query = fn()
         except ImportError:
-            rows.append((name, "not-installed", "")); continue
+            rows.append((name, "not-installed", "", "")); continue
         except CompactionFailed as ex:
-            rows.append((name, "compaction-failed", str(ex))); continue
+            rows.append((name, "compaction-failed", str(ex), "")); continue
         except Exception as ex:
-            rows.append((name, "error", repr(ex)[:80])); continue
+            rows.append((name, "error", repr(ex)[:80], "")); continue
+        qcol = "" if query is None else ("visible" if query else "absent")
         if name == "instrument":
-            rows.append((name, "ok" if present and control else "BROKEN", "reader must see an undeleted marker"))
+            rows.append((name, "ok" if present and control else "BROKEN", "reader must see an undeleted marker", ""))
         elif not control:
-            rows.append((name, "control-failed", "the undeleted marker vanished too; no verdict"))
+            rows.append((name, "control-failed", "the undeleted marker vanished too; no verdict", qcol))
         else:
-            rows.append((name, "PRESENT" if present else "absent", note))
+            rows.append((name, "PRESENT" if present else "absent", note, qcol))
     return rows
 
 
@@ -195,16 +213,20 @@ def main(argv):
     print("=" * 74)
     print("agent-memory erasure self-check - YOUR stack (marker present in raw store after delete+VACUUM?)")
     print("=" * 74)
-    for n, status, note in rows:
-        print(f"  {n:<12} {status:<14} {note}")
+    print(f"  {'backend':<12} {'bytes on disk':<14} {'own API':<8} note")
+    for n, status, note, qcol in rows:
+        print(f"  {n:<12} {status:<14} {qcol:<8} {note}")
     print("-" * 74)
+    print("'own API' = what the store's own read or search returned for the deleted record after the delete:")
+    print("'absent' there with 'PRESENT' on disk is the finding; a query that cannot see a record says nothing")
+    print("about the file that still holds it. Reported apart on purpose.")
     print("This is YOUR result. 'PRESENT' = the marker's bytes are still in the store's files after its own")
     print("delete + VACUUM (logical residue). 'absent' = gone from the files, and the undeleted control marker")
     print("is still there, so the store deleted what it was asked to and nothing more. 'control-failed' and")
     print("'compaction-failed' = no verdict. It is NOT an at-rest-security verdict (plaintext stores leave bytes in free")
     print("space/backups - use FDE + crypto-erasure). If a result surprises you, raise it with that project via")
     print("coordinated disclosure. inspeximus adds content-free deletion + shred().")
-    return 2 if any(s == "BROKEN" for _, s, _ in rows) else 0
+    return 2 if any(r[1] == "BROKEN" for r in rows) else 0
 
 
 if __name__ == "__main__":
