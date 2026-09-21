@@ -12,8 +12,8 @@
 <link rel="canonical" href="https://dancenitra.github.io/ramr/">
 <meta property="og:type" content="website"><meta property="og:url" content="https://dancenitra.github.io/ramr/"><meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[
-{"@type":"SoftwareSourceCode","name":"RAMR — Retrieval-Augmented Memory Reliability","alternateName":"RAMR","url":"https://dancenitra.github.io/ramr/","codeRepository":"https://github.com/DanceNitra/ramr","programmingLanguage":"Python","license":"https://opensource.org/licenses/MIT","version":"0.6.0","identifier":"https://doi.org/10.5281/zenodo.20818291","author":{"@type":"Person","name":"Rastislav Drahoš","url":"https://github.com/DanceNitra","affiliation":{"@type":"Organization","name":"Agora"}},"description":"A contamination-resistant synthetic benchmark for agent memory that audits itself: shortcut floor, chain-fragility, echo-resistance, preflight admissibility gates. Every number recomputed from source.","keywords":"agent memory benchmark, RAG evaluation, shortcut learning, dataset artifacts, echo resistance, chain fragility, LLM memory integrity","isAccessibleForFree":true},
-{"@type":"ScholarlyArticle","headline":"RAMR — Retrieval-Augmented Memory Reliability: findings as of v0.6.0","url":"https://dancenitra.github.io/ramr/RAMR_findings_v0.6.pdf","author":{"@type":"Person","name":"Rastislav Drahoš"},"datePublished":"2026-09-07","sameAs":"https://doi.org/10.5281/zenodo.20818291","isPartOf":{"@type":"SoftwareSourceCode","url":"https://dancenitra.github.io/ramr/"}},
+{"@type":"SoftwareSourceCode","name":"RAMR — Retrieval-Augmented Memory Reliability","alternateName":"RAMR","url":"https://dancenitra.github.io/ramr/","codeRepository":"https://github.com/DanceNitra/ramr","programmingLanguage":"Python","license":"https://opensource.org/licenses/MIT","version":"0.6.1","identifier":"https://doi.org/10.5281/zenodo.20818291","author":{"@type":"Person","name":"Rastislav Drahoš","url":"https://github.com/DanceNitra","affiliation":{"@type":"Organization","name":"Agora"}},"description":"A contamination-resistant synthetic benchmark for agent memory that audits itself: shortcut floor, chain-fragility, echo-resistance, preflight admissibility gates. Every number recomputed from source.","keywords":"agent memory benchmark, RAG evaluation, shortcut learning, dataset artifacts, echo resistance, chain fragility, LLM memory integrity","isAccessibleForFree":true},
+{"@type":"ScholarlyArticle","headline":"RAMR — Retrieval-Augmented Memory Reliability: findings as of v0.6.1","url":"https://dancenitra.github.io/ramr/RAMR_findings_v0.6.pdf","author":{"@type":"Person","name":"Rastislav Drahoš"},"datePublished":"2026-09-07","sameAs":"https://doi.org/10.5281/zenodo.20818291","isPartOf":{"@type":"SoftwareSourceCode","url":"https://dancenitra.github.io/ramr/"}},
 {"@type":"FAQPage","mainEntity":[
 {"@type":"Question","name":"How much of a memory benchmark can be solved without understanding it?","acceptedAnswer":{"@type":"Answer","text":"RAMR's memaudit.py measures the shortcut floor: accuracy reachable by surface-form rules alone (position, length, casing, stray fields), scored against permuted labels. RAMR's own v0.2 traces read 97.2%; the connectivity-balanced v0.5 re-cut reads 40.0% at 1.7% coverage."}},
 {"@type":"Question","name":"What is chain-fragility in agent memory?","acceptedAnswer":{"@type":"Answer","text":"The accuracy cost of one missing hop in a multi-hop answer. In RAMR, gold-chain accuracy is 1.000 and dropping a single hop gives 0.000: chain-fragility +1.000, CI [+1.000, +1.000], n=200, across two model families."}},
@@ -123,7 +123,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 70px;font-size:14px;color
   <div class="dot" style="width:9vw;height:9vw;right:6vw;bottom:-3vw"></div>
   <div class="dot" style="width:2.2vw;height:2.2vw;left:62vw;top:38vh"></div>
   <div class="g">
-    <div class="top"><span>Retrieval-Augmented Memory Reliability</span><span>v0.6.0 · MIT · doi 10.5281/zenodo.20818291</span></div>
+    <div class="top"><span>Retrieval-Augmented Memory Reliability</span><span>v0.6.1 · MIT · doi 10.5281/zenodo.20818291</span></div>
     <div>
       <div class="num first"><button class="n x" data-r="floor">97.2</button><small>%</small></div>
       <div class="lede">
@@ -264,7 +264,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 70px;font-size:14px;color
 <section id="cite"><div class="g">
   <h2>Cite the concept DOI.</h2>
   <p>It always resolves to the latest version. Archived on Zenodo from each tagged release; the write-up <a href="RAMR_findings_v0.6.pdf">RAMR_findings_v0.6.pdf</a> is attached to the record.</p>
-  <pre class="cite">Drahoš, R. (2026). <span class="k">RAMR — Retrieval-Augmented Memory Reliability</span> (Version 0.6.0) [Computer software].
+  <pre class="cite">Drahoš, R. (2026). <span class="k">RAMR — Retrieval-Augmented Memory Reliability</span> (Version 0.6.1) [Computer software].
 Zenodo. https://doi.org/10.5281/zenodo.20818291
 
 @software{ramr2026,
