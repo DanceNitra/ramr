@@ -134,6 +134,7 @@ def main():
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--build-only", action="store_true")
     ap.add_argument("--arms", default=",".join(ARMS), help="comma-separated subset; the cache carries calls over")
+    ap.add_argument("--stop-after-min", type=float, default=0, help="stop calling after this many minutes (0 = no limit)")
     a = ap.parse_args()
     arms = tuple(c for c in ARMS if c in a.arms.split(","))
     pool = T.load_questions("engineering", 0)
@@ -151,21 +152,31 @@ def main():
     if a.build_only:
         return
 
+    stop_at = time.time() + a.stop_after_min * 60 if a.stop_after_min else None
+
     def run(j):
+        if stop_at and time.time() > stop_at:
+            return None
         text, tin, tout, usd = call(j["user"])
         return {"psha": j["psha"], "model": MODEL, "answer": T.parse(text), "tin": tin, "tout": tout,
                 "usd_equiv": usd, "tail": text[-300:]}
 
     with cf.ThreadPoolExecutor(a.workers) as px, open(CACHE, "a", encoding="utf-8") as f:
         for n, r in enumerate(px.map(run, todo), 1):
+            if r is None:
+                continue
             f.write(json.dumps(r) + "\n")
             f.flush()
             done[r["psha"]] = r
             if n % 10 == 0 or n == len(todo):
                 print(f"[{T.el()}] {n}/{len(todo)} calls", flush=True)
+    # Score only forks with every prompt answered: a missing answer is not a wrong one.
+    missing = {j["id"] for j in jobs if j["psha"] not in done}
+    ids = [q["id"] for q in items if q["id"] not in missing]
+    if missing:
+        print(f"[{T.el()}] scoring {len(ids)} complete forks of {len(items)}", flush=True)
     recs = [{"id": j["id"], "cond": j["cond"], "order": j["order"],
-             "ok": int(done.get(j["psha"], {}).get("answer") == j["correct"])} for j in jobs]
-    ids = [q["id"] for q in items]
+             "ok": int(done.get(j["psha"], {}).get("answer") == j["correct"])} for j in jobs if j["id"] not in missing]
     per_arm = {c: T.both_correct(recs, c, ids) for c in arms}
     rate = {c: round(sum(v) / len(v), 4) for c, v in per_arm.items()}
     used = [done[p] for p in {j["psha"] for j in jobs} if p in done]
